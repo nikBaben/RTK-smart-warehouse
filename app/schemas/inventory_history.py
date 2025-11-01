@@ -76,7 +76,7 @@ class InventoryHistoryExport(BaseModel):
 
 
 class FilteredInventoryHistoryResponse(BaseModel):
-    data: Tuple[List[InventoryHistoryRead], int]  
+    data: Tuple[List[Tuple[InventoryHistoryRead, Any, int]], int]  
 
 class ChartResponse(BaseModel):
     data: Dict[str, List[Tuple[datetime, int]]]

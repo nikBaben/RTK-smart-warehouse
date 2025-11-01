@@ -43,7 +43,7 @@ class InventoryHistoryService:
         sort_order: str,
         page: int,
         page_size: int
-    ) -> Tuple[List[InventoryHistory], int]:
+    ) -> Tuple[List[Tuple[InventoryHistory, Any, int]], int]:
 
         inventory_history = await self.repo.get_filtered_inventory_history(
             warehouse_id=warehouse_id,
@@ -148,3 +148,14 @@ class InventoryHistoryService:
                 f"не найдена."
             )
         return inventory_history
+    
+
+    async def import_inventory_from_csv(
+        self,
+        warehouse_id: str,
+        csv_data: str,
+    ) -> None:
+        
+        await self.repo.import_inventory_from_csv(
+            warehouse_id=warehouse_id, csv_data = csv_data
+        )
