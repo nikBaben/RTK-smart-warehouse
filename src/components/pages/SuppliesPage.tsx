@@ -100,7 +100,7 @@ function SuppliesPage() {
 								<h2 className='big-section-font mb-3'>Поступления</h2>
 								{loading ? (
 									<div className='space-y-2'>
-										{[...Array(12)].map((_, i) => (
+										{[...Array(14)].map((_, i) => (
 											<div
 												key={i}
 												className='flex justify-between items-center bg-[#F2F3F4] rounded-[10px] px-[10px] py-[10px]'
@@ -127,7 +127,7 @@ function SuppliesPage() {
 													<div
 														/* onClick={() => onSelect(wh)}*/
 														/* onContextMenu={() => onContextMenu?.(d)} */
-														className='big-list-item-container hover:border-[#7700FF33]'
+														className='big-list-item-container border-transparent hover:border-[#7700FF33]'
 													>
 														<div className='text-left space-y-0'>
 															<div className='text-[18px] font-medium text-black'>
@@ -172,7 +172,7 @@ function SuppliesPage() {
 								<h2 className='big-section-font'>Отгрузки</h2>
 								{loading ? (
 									<div className='space-y-2'>
-										{[...Array(12)].map((_, i) => (
+										{[...Array(14)].map((_, i) => (
 											<div
 												key={i}
 												className='flex justify-between items-center bg-[#F2F3F4] rounded-[10px] px-[10px] py-[10px]'

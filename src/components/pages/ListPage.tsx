@@ -49,7 +49,8 @@ function ListPage() {
 	const [openEdit, setOpenEdit] = useState(false)
 	const [contextRobot, setContextRobot] = useState<Robot | null>(null)
 	const [contextProduct, setContextProduct] = useState<Robot | null>(null)
-
+	const [addLoading, setAddLoading] = useState(false)
+		
 	const {
 		warehouses,
 		loading,
@@ -236,7 +237,7 @@ function ListPage() {
 
 	const handleAddProduct = async (e: React.FormEvent) => {
 		e.preventDefault()
-
+		setAddLoading(true)
 		if (!selectedWarehouse) {
 			alert('Сначала выберите склад')
 			return
@@ -279,6 +280,8 @@ function ListPage() {
 			console.error('Ошибка при добавлении товара:', error)
 			toast.error('Не удалось добавить товар')
 			setLoadingInfo(false)
+		} finally{
+			setAddLoading(false)
 		}
 	}
 
@@ -768,10 +771,10 @@ function ListPage() {
 															<Button
 																type='submit'
 																className='w-[50%] rounded-[10px] text-[18px] text-white font-medium bg-[#7700FF] cursor-pointer transition-all hover:brightness-90'
-																disabled={loading}
+																disabled={addLoading}
 															>
 																<Check className='!h-5 !w-5' />
-																{loading ? 'Добавление...' : 'Подтвердить'}
+																{addLoading ? 'Добавление...' : 'Подтвердить'}
 															</Button>
 														</DialogFooter>
 													</form>
@@ -923,6 +926,22 @@ function ListPage() {
 																			</SelectItem>
 																			<SelectItem value='Комплектующие'>
 																				Комплектующие
+																			</SelectItem>
+																			<SelectItem value='Сетевое оборудование'>
+																				Сетевое оборудование
+																			</SelectItem>
+																			<SelectItem value='Драгоценные металлы'>
+																				Драгоценные металлы
+																			</SelectItem>
+																			<SelectItem value='Оружие'>
+																				Оружие
+																			</SelectItem>
+																			<SelectItem value='Еда'>Еда</SelectItem>
+																			<SelectItem value='Заморозка'>
+																				Заморозка
+																			</SelectItem>
+																			<SelectItem value='Другое'>
+																				Другое
 																			</SelectItem>
 																		</SelectContent>
 																	</Select>

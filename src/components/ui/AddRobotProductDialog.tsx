@@ -29,7 +29,7 @@ import { useWarehouseStore } from '@/store/useWarehouseStore'
 import { ToggleButtons } from './ToggleButtons.tsx'
 
 export function AddRobotProductDialog() {
-  const token = localStorage.getItem('token')
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token')
 	const [open, setOpen] = useState(false)
 	const [formData, setFormData] = useState({
 		name: '',

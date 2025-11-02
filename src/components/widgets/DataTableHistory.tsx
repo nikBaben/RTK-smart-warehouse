@@ -181,9 +181,9 @@ export function DataTableHistory<T extends { id: string }>(
 							<TableRow>
 								<TableCell
 									colSpan={columns.length}
-									className='text-center py-10 text-gray-500'
+									className='text-center text-[#9699A3] text-[20px] py-10'
 								>
-									Не удалось найти информацию
+									не удалось найти информацию
 								</TableCell>
 							</TableRow>
 						) : (
@@ -238,7 +238,6 @@ export function DataTableHistory<T extends { id: string }>(
 													{isFirst ? (
 														<div className='flex items-center gap-2'>
 															<Checkbox
-                              
 																checked={isSelected}
 																onCheckedChange={() => toggleRow(rowId)}
 																onClick={e => e.stopPropagation()}
