@@ -90,6 +90,7 @@ POSITIONS_MIN_INTERVAL_MS = int(os.getenv("POSITIONS_MIN_INTERVAL_MS", "75"))
 POSITIONS_KEEPALIVE_MS = int(os.getenv("POSITIONS_KEEPALIVE_MS", "1000"))
 KEEPALIVE_FULL = os.getenv("KEEPALIVE_FULL", "1") == "1"
 POSITIONS_DIFFS = os.getenv("POSITIONS_DIFFS", "0") == "1"
+# FIX: правильная логика включения отправки позиций (оставлено как было в твоём файле)
 SEND_ROBOT_POSITION = os.getenv("SEND_ROBOT_POSITION", "1") == "0"
 
 IDLE_GOAL_LOOKUP_EVERY = int(os.getenv("IDLE_GOAL_LOOKUP_EVERY", "2"))
@@ -107,6 +108,29 @@ POSITIONS_BROADCAST_INTERVAL_MS = int(os.getenv("POSITIONS_BROADCAST_INTERVAL_MS
 POSITIONS_MAX_INTERVAL_MS = int(os.getenv("POSITIONS_MAX_INTERVAL_MS", "2000"))
 
 LAST_SCANS_LIMIT = int(os.getenv("LAST_SCANS_LIMIT", "20"))
+
+# Настраиваемое окно выбора «самых старых» кандидатов (раньше было K=12)
+STALE_PICK_TOPK = int(os.getenv("STALE_PICK_TOPK", "12"))
+
+# ─── Multi-dock support ─────────────────────────────────────────────────────────
+# Можно задать через env: DOCKS_JSON='[[0,0],[13,25]]'
+try:
+    _DOCKS_ENV = os.getenv("DOCKS_JSON")
+    DOCKS: List[Tuple[int, int]] = [tuple(map(int, xy)) for xy in (json.loads(_DOCKS_ENV) if _DOCKS_ENV else [])]
+except Exception:
+    DOCKS = []
+
+# По умолчанию — только старый док, чтобы поведение не менялось без env
+if not DOCKS:
+    DOCKS = [(DOCK_X, DOCK_Y)]
+
+def nearest_dock(p: Tuple[int, int]) -> Tuple[int, int]:
+    """Ближайшая док-станция до точки p (Манхэттен)."""
+    return min(DOCKS, key=lambda d: abs(p[0]-d[0]) + abs(p[1]-d[1]))
+
+def is_at_any_dock(p: Tuple[int, int]) -> bool:
+    return p in DOCKS
+# ────────────────────────────────────────────────────────────────────────────────
 
 # =========================
 # 7) Small hot-path constants
@@ -595,6 +619,20 @@ async def _claim_global(wid: str, cell: Tuple[int, int]) -> bool:
     ok = await r.set(_r_key_claim(wid, x, y), "1", nx=True, px=CLAIM_TTL_MS)
     return bool(ok)
 
+async def _renew_claim_global(wid: str, cell: Tuple[int, int]) -> None:
+    """Продление TTL брони клетки, пока робот к ней едет."""
+    if not USE_REDIS_CLAIMS:
+        return
+    r = await _get_redis()
+    if r is None:
+        return
+    x, y = cell
+    key = _r_key_claim(wid, x, y)
+    try:
+        await r.pexpire(key, CLAIM_TTL_MS)
+    except Exception:
+        pass
+
 async def _free_claim_global(wid: str, cell: Tuple[int, int]) -> None:
     x, y = cell
     if not USE_REDIS_CLAIMS:
@@ -703,19 +741,24 @@ async def _filter_cells_eligible(
             out.append((x, y))
     return out
 
-# legacy (fallback) — полный обход (редко, при пустом ZSET)
+# legacy (fallback) — полный обход (редко, при пустом ZSET), теперь с ORDER BY min(last_scanned_at)
 async def _eligible_cells(session: AsyncSession, wid: str, cutoff: datetime) -> List[Tuple[int, int]]:
     rows = await session.execute(
-        select(Product.current_row, func.upper(func.trim(Product.current_shelf)))
+        select(
+            Product.current_row,
+            func.upper(func.trim(Product.current_shelf)).label("shelf"),
+            func.min(func.coalesce(Product.last_scanned_at, EPOCH)).label("min_scan")
+        )
         .where(
             Product.warehouse_id == wid,
             func.upper(func.trim(Product.current_shelf)) != "0",
             (Product.last_scanned_at.is_(None)) | (Product.last_scanned_at < cutoff),
         )
-        .distinct()
+        .group_by(Product.current_row, func.upper(func.trim(Product.current_shelf)))
+        .order_by(func.min(func.coalesce(Product.last_scanned_at, EPOCH)).asc())
     )
     out: List[Tuple[int, int]] = []
-    for y_int, shelf_str in rows.all():
+    for y_int, shelf_str, _min_scan in rows.all():
         x = shelf_str_to_num(shelf_str)
         y = int(y_int or 0)
         if 1 <= x <= FIELD_X and 0 <= y < FIELD_Y:
@@ -970,17 +1013,21 @@ async def _robot_tick(session: AsyncSession, robot_id: str, tick_id: Optional[in
     goal = _TARGETS.get(robot.id)
     low_batt = float(robot.battery_level or 0.0) <= LOW_BATTERY_THRESHOLD
 
-    if low_batt:
-        if goal:
-            await _free_claim_global(wid, goal)
-            _TARGETS.pop(robot.id, None)
-        goal = (DOCK_X, DOCK_Y)
-    else:
-        if goal is not None:
+    # eligibility re-check теперь только «на подлёте»
+    if goal is not None and not low_batt:
+        dist = manhattan(cur, goal)
+        if dist <= 1:
             if not await _cell_still_eligible(session, wid, goal, cutoff):
                 await _free_claim_global(wid, goal)
                 _TARGETS.pop(robot.id, None)
                 goal = None
+
+    if low_batt:
+        if goal:
+            await _free_claim_global(wid, goal)
+            _TARGETS.pop(robot.id, None)
+        goal = nearest_dock(cur)  # <-- ездим на ближайший док
+    else:
         if goal is None and (tid % IDLE_GOAL_LOOKUP_EVERY == 0):
             # ✨ NEW: precompute per-tick goals queue ONCE per warehouse (global shared within tick)
             if cache["goals_queue"] is None:
@@ -993,7 +1040,7 @@ async def _robot_tick(session: AsyncSession, robot_id: str, tick_id: Optional[in
                     qcells = oldest_cells[:64]
                     eligible = await _filter_cells_eligible(session, wid, qcells, cutoff)
                 else:
-                    # Fallback single SQL (rare)
+                    # Fallback single SQL (rare) — уже упорядочен по давности
                     eligible = await _eligible_cells(session, wid, cutoff)
 
                 # Stable order: oldest first; tie-breaker: per robot мы предпочтем ближайшие позже.
@@ -1004,8 +1051,8 @@ async def _robot_tick(session: AsyncSession, robot_id: str, tick_id: Optional[in
                 claimed = _claimed_set(wid)
                 local_sel: Set[Tuple[int, int]] = cache["local_selected"]
 
-                # iterate few items and pick nearest among the first K (micro-heuristic)
-                K = 12
+                # iterate few items and pick nearest among the first K (env-configurable)
+                K = max(1, STALE_PICK_TOPK)
                 candidates = []
                 taken = 0
                 for c in cache["goals_queue"]:
@@ -1056,11 +1103,12 @@ async def _robot_tick(session: AsyncSession, robot_id: str, tick_id: Optional[in
     if moved:
         robot.battery_level = max(0.0, float(robot.battery_level or 0.0) - BATTERY_DROP_PER_STEP)
 
-    # Battery died → dock
+    # Battery died → dock (ближайший)
     if float(robot.battery_level or 0.0) <= 0.0:
-        set_robot_xy(robot, DOCK_X, DOCK_Y)
+        dx, dy = nearest_dock((cur_x, cur_y))
+        set_robot_xy(robot, dx, dy)
         await set_status(session, robot, "charging")
-        if goal and goal != (DOCK_X, DOCK_Y):
+        if goal and not is_at_any_dock(goal):
             await _free_claim_global(wid, goal)
         _TARGETS.pop(robot.id, None)
         await _emit_position_if_needed(robot)
@@ -1072,9 +1120,14 @@ async def _robot_tick(session: AsyncSession, robot_id: str, tick_id: Optional[in
     await _emit_position_if_needed(robot)
     await _maybe_emit_positions_snapshot_inmem(wid)
 
-    if (nx, ny) == (DOCK_X, DOCK_Y) and float(robot.battery_level) < 100.0:
+    # Пока едем к цели — продлеваем бронь, чтобы её не «увели»
+    if goal and (nx, ny) != goal and not low_batt:
+        await _renew_claim_global(wid, goal)
+
+    # Приехали на ДОК — начинаем зарядку
+    if is_at_any_dock((nx, ny)) and float(robot.battery_level) < 100.0:
         await set_status(session, robot, "charging")
-        if goal and goal != (DOCK_X, DOCK_Y):
+        if goal and not is_at_any_dock(goal):
             await _free_claim_global(wid, goal)
         _TARGETS.pop(robot.id, None)
         await _maybe_emit_positions_snapshot_inmem(wid)

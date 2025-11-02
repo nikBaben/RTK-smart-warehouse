@@ -20,18 +20,18 @@ async def _dispatch_to_ws(event: Dict[str, Any]) -> None:
     if not wh:
         # Диагностика: попались события без warehouse_id — они не попадут в комнату
         et = event.get("type")
-        print(f"⚠️ redis_forwarder: skip event without warehouse_id (type={et})", flush=True)
+        #print(f"⚠️ redis_forwarder: skip event without warehouse_id (type={et})", flush=True)
         return
     target_sid: Optional[str] = event.get("unicast_session_id")
 
     try:
         if target_sid:
             sent = await manager.unicast_json(wh, target_sid, event)
-            print(f"📤 WS unicast: wh={wh} sid={target_sid} type={event.get('type')} sent={sent}", flush=True)
+            #print(f"📤 WS unicast: wh={wh} sid={target_sid} type={event.get('type')} sent={sent}", flush=True)
             return
 
         sent = await manager.broadcast_json(wh, event)
-        print(f"📤 WS send: wh={wh} type={event.get('type')} sent={sent}", flush=True)
+        #print(f"📤 WS send: wh={wh} type={event.get('type')} sent={sent}", flush=True)
 
     except Exception as e:
         print(f"⚠️ redis_forwarder: broadcast error for wh={wh}: {e}. event={event}", flush=True)

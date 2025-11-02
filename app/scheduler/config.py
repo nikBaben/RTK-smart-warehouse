@@ -20,6 +20,8 @@ class Config:
     shipment_status: ShipmentStatus = ShipmentStatus.scheduled
     timezone: timezone = timezone.utc
     run_once: bool = False
+    predict_refresh_days: int = int(os.getenv("SCHEDULER_PREDICT_REFRESH_DAYS", "7"))
+    predict_check_interval: int = int(os.getenv("SCHEDULER_PREDICT_CHECK_INTERVAL", "60"))
 
 
 def load_config() -> Config:
@@ -58,3 +60,4 @@ def load_config() -> Config:
         timezone=tz,
         run_once=run_once,
     )
+

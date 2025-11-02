@@ -182,6 +182,14 @@ class ProductRepository:
             status_code=400,
             detail=f"Склад '{warehouse_id}' переполнен. Можно добавить только {allow} товаров."
         )
+    
+    async def get_name(self, product_id: str) -> Optional[str]:
+        res = await self.session.execute(
+            text("SELECT name FROM products WHERE id = :pid"),
+            {"pid": product_id},
+        )
+        row = res.first()
+        return row[0] if row else None
         
     async def bump_products_count(self, warehouse_id: str, delta: int) -> None:
         if not warehouse_id:

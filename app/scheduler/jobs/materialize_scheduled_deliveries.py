@@ -2,7 +2,8 @@
 from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from app.models.delivery import Delivery, DeliveryItems, ScheduledDelivery
+from app.models.delivery import Delivery, ScheduledDelivery
+from app.models.delivery_items import DeliveryItems
 
 HORIZON_HOURS = 24  # как далеко вперёд разворачивать планы
 

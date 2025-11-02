@@ -119,3 +119,7 @@ class WarehouseRepository:
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def list_ids(self) -> list[str]:
+        stmt = select(Warehouse.id)
+        return (await self.session.execute(stmt)).scalars().all()

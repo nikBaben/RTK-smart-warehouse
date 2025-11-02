@@ -6,9 +6,9 @@
             "server": "localhost",
             "port": 5433,
             "driver": "PostgreSQL",
-            "username": "postgres",
+            "name": "rtk-smart-warehouse",
             "database": "myapp",
-            "name": "ddd"
+            "username": "postgres"
         }
     ]
 }
