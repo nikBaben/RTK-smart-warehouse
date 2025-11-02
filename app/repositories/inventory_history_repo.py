@@ -12,7 +12,7 @@ import pandas as pd
 import xlsxwriter  # noqa: F401 (engine for pandas)
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, cast, Date, or_, distinct, func, insert, update
+from sqlalchemy import select, cast, Date, or_, distinct, func, insert, update,case
 from sqlalchemy.exc import IntegrityError
 
 from fastapi import HTTPException
