@@ -1,0 +1,237 @@
+services:
+  db:
+    image: postgres:16
+    container_name: myapp-db
+    environment:
+      POSTGRES_DB: myapp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    # ↑ Для dev дадим запас соединений. В prod — лучше PgBouncer, но вы просили без него.
+    command: ["postgres", "-c", "max_connections=300", "-c", "shared_buffers=512MB"]
+    ports:
+      - "5433:5432" # внешний порт 5433 → внутренний 5432 (для подключения с хоста)
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d myapp"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: myapp-redis
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    container_name: myapp-api
+    working_dir: /app
+    env_file:
+      - .env
+    environment:
+      # ── соединение к БД ──────────────────────────────────────────────────────
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/myapp
+
+      # ── Redis: выровняли имя переменной под код ─────────────────────────────
+      REDIS_URL: redis://redis:6379/0
+      REDIS_DSN: redis://redis:6379/0  # оставлено для совместимости
+
+      # ── роль и флаги производительности ─────────────────────────────────────
+      APP_ROLE: api
+      SQLALCHEMY_DISABLE_CEXT: "0"   # включаем C-расширения (быстрее)
+      USE_UVLOOP: "0"                # в команде ниже явно asyncio/h11
+
+      # ── real-time флаги, если используете стримы/координатор ───────────────
+      USE_REDIS_COORD: "1"
+      USE_REDIS_STREAMS: "1"
+      SEND_ROBOT_POSITION: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    expose:
+      - "8000"
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0 --port 8000
+      --proxy-headers
+      --workers 1
+      --loop asyncio
+      --http h11
+      --timeout-keep-alive 5
+    volumes:
+      - ./:/app
+      - ./tools/websocat:/usr/local/bin/websocat:ro
+
+  worker:
+    build: .
+    container_name: myapp-worker
+    working_dir: /app
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+    env_file:
+      - .env
+    environment:
+      # ── соединения БД / Redis ────────────────────────────────────────────────
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/myapp
+      REDIS_URL: redis://redis:6379/0
+      REDIS_DSN: redis://redis:6379/0
+
+      # ── важные флаги для устойчивости логов/цикла ────────────────────────────
+      PYTHONUNBUFFERED: "1"
+      PYTHONFAULTHANDLER: "1"
+      USE_UVLOOP: "0"
+      SQLALCHEMY_DISABLE_CEXT: "0"
+
+      # ── параметры эмулятора ──────────────────────────────────────────────────
+      ROBOT_TICK_INTERVAL: "0.5"
+      POSITION_RATE_LIMIT_SEC: "0.25"
+      RESCAN_COOLDOWN_SEC: "30"
+      SCAN_DURATION_SEC: "6"
+
+      # ── пул SQLAlchemy для воркера ───────────────────────────────────────────
+      DB_POOL_SIZE: "15"
+      DB_MAX_OVERFLOW: "15"
+      DB_POOL_TIMEOUT: "8"
+      DB_POOL_PRE_PING: "1"
+      DB_POOL_RECYCLE_SEC: "120"
+
+      # ── real-time флаги ─────────────────────────────────────────────────────
+      USE_REDIS_COORD: "1"
+      USE_REDIS_STREAMS: "1"
+      SEND_ROBOT_POSITION: "1"
+
+      # ⚠ Эти переменные вашим текущим кодом могут не использоваться
+      ROBOT_POOL_SIZE: "300"
+      ROBOT_MAX_OVERFLOW: "600"
+      ROBOT_POOL_TIMEOUT: "30.0"
+      ROBOT_CONCURRENCY: "10"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: python -m app.workers.runner
+    volumes:
+      - ./:/app
+    healthcheck:
+      test: ["CMD", "python", "-c", "print('ok')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  scheduler:
+    build: .
+    container_name: myapp-scheduler
+    working_dir: /app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/myapp
+      SQLALCHEMY_DISABLE_CEXT: "0"
+      SCHEDULER_INTERVAL_SEC: "600"
+      SHIPMENT_ITEM_QTY: "1"
+      SHIPMENT_NAME_PREFIX: "Auto shipment"
+      SHIPMENT_STATUS: "scheduled"
+      REDIS_URL: redis://redis:6379/0
+      REDIS_DSN: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: python -m app.scheduler.main
+    volumes:
+      - ./:/app
+
+  # --- База данных для Keycloak ---
+  keycloak-db:
+    image: postgres:15-alpine
+    container_name: keycloak-db
+    environment:
+      POSTGRES_DB: keycloak_db
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    ports:
+      - "5432:5432"
+    volumes:
+      - keycloak_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # --- Keycloak ---
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4.0
+    container_name: myapp-keycloak
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak_db
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    command:
+      - "start-dev"
+      - "--verbose"
+      - "--http-enabled=true"
+      - "--proxy-headers=xforwarded"
+    ports:
+      - "8080:8080"
+
+  frontend-dev:
+    image: node:20-alpine
+    container_name: myapp-frontend-dev
+    working_dir: /app
+    environment:
+      NODE_ENV: development
+      # ITE_API_URL: https://dev.rtk-smart-warehouse.ru/api
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0 --port 5173"
+    ports:
+      - "5173:5173"
+    depends_on:
+      api:
+        condition: service_started
+
+  caddy:
+    image: caddy:2
+    container_name: myapp-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - frontend-dev
+
+volumes:
+  pgdata:
+  keycloak_pgdata:
+  caddy_data:
+  caddy_config:

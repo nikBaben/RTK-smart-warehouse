@@ -1,0 +1,14 @@
+{
+    "sqltools.connections": [
+        {
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5433,
+            "driver": "PostgreSQL",
+            "name": "rtk-smart-warehouse",
+            "database": "myapp",
+            "username": "postgres"
+        }
+    ]
+}

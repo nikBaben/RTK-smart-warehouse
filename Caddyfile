@@ -1,0 +1,188 @@
+# === API (dev) ===
+dev.rtk-smart-warehouse.ru {
+    encode zstd gzip
+
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    }
+
+    # --- WebSocket endpoint(s) ---
+    @ws path /api/ws* /api/socket* /api/rt*  # добавил частые варианты путей
+    handle @ws {
+        reverse_proxy myapp-api:8000 {
+            # Для uvicorn/httptools и ws — строго 1.1
+            transport http {
+                versions 1.1
+                dial_timeout 3s
+                read_timeout 0       # не ограничиваем чтение (долгие WS)
+                write_timeout 0
+                keepalive 30s
+            }
+            header_up Host {host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-For {remote}
+            header_up -X-Forwarded-Prefix
+        }
+    }
+
+    # --- SSE/long-poll (если есть, поможет не буферить ответ) ---
+    @sse path /api/sse* /api/events* /api/stream*
+    handle @sse {
+        reverse_proxy myapp-api:8000 {
+            # тоже 1.1 и "бесконечные" таймауты на чтение/запись,
+            # чтобы Caddy не рвал поток
+            transport http {
+                versions 1.1
+                dial_timeout 3s
+                read_timeout 0
+                write_timeout 0
+                keepalive 30s
+            }
+            header_up Host {host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-For {remote}
+            header_up -X-Forwarded-Prefix
+
+            # Подсказки клиентам/промежуточным прокси для SSE
+            header_up Cache-Control "no-cache"
+        }
+    }
+
+    # --- Остальной API ---
+    @api path /api* /docs* /openapi.json
+    handle @api {
+        reverse_proxy myapp-api:8000 {
+            # фиксируем 1.1 и понятные таймауты
+            transport http {
+                versions 1.1
+                dial_timeout 3s
+                read_timeout 60s     # обычные запросы
+                write_timeout 60s
+                keepalive 30s
+            }
+            header_up Host {host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-For {remote}
+            header_up -X-Forwarded-Prefix
+
+            # Небольшой запас на ретраи внутри Caddy (если апстрим моргнул)
+            lb_try_duration 8s
+            lb_try_interval 250ms
+        }
+    }
+
+    # --- По умолчанию (если кто-то стукнулся не в /api) — покажем API ---
+    handle {
+        reverse_proxy myapp-api:8000 {
+            transport http {
+                versions 1.1
+                dial_timeout 3s
+                read_timeout 60s
+                write_timeout 60s
+                keepalive 30s
+            }
+            header_up Host {host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-For {remote}
+            header_up -X-Forwarded-Prefix
+        }
+    }
+
+    tls bikita.nabkin@gmail.com
+}
+
+# === FRONTEND (dev) + проброс API на тот же домен ===
+rtk-smart-warehouse.ru {
+    encode zstd gzip
+
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    }
+
+    # Проброс WS API
+    @ws path /api/ws* /api/socket* /api/rt*
+    handle @ws {
+        reverse_proxy myapp-api:8000 {
+            transport http {
+                versions 1.1
+                dial_timeout 3s
+                read_timeout 0
+                write_timeout 0
+                keepalive 30s
+            }
+            header_up Host {host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-For {remote}
+            header_up -X-Forwarded-Prefix
+        }
+    }
+
+    # SSE/long streams
+    @sse path /api/sse* /api/events* /api/stream*
+    handle @sse {
+        reverse_proxy myapp-api:8000 {
+            transport http {
+                versions 1.1
+                dial_timeout 3s
+                read_timeout 0
+                write_timeout 0
+                keepalive 30s
+            }
+            header_up Host {host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-For {remote}
+            header_up -X-Forwarded-Prefix
+            header_up Cache-Control "no-cache"
+        }
+    }
+
+    # Остальной API
+    @api path /api* /docs* /openapi.json
+    handle @api {
+        reverse_proxy myapp-api:8000 {
+            transport http {
+                versions 1.1
+                dial_timeout 3s
+                read_timeout 60s
+                write_timeout 60s
+                keepalive 30s
+            }
+            header_up Host {host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-For {remote}
+            header_up -X-Forwarded-Prefix
+            lb_try_duration 8s
+            lb_try_interval 250ms
+        }
+    }
+
+    # Всё остальное — фронт
+    handle {
+        reverse_proxy myapp-frontend-dev:5173 {
+            transport http {
+                versions 1.1
+                dial_timeout 3s
+                read_timeout 60s
+                write_timeout 60s
+                keepalive 30s
+            }
+            header_up Host {host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-For {remote}
+        }
+    }
+
+    tls bikita.nabkin@gmail.com
+}

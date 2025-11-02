@@ -1,0 +1,284 @@
+@import "tailwindcss/preflight";
+@import "tailwindcss/theme";
+@import "tailwindcss/utilities";
+
+@import "./styles/fonts.css";
+
+body {
+  font-family: "RostelecomBasis", system-ui, sans-serif;
+  color: rgb(17 24 39);
+  background-color: rgb(249 250 251);
+  margin: 0;
+  min-width: 320px;
+  scroll-behavior: smooth;
+  min-height: 100vh;
+}
+div{
+  scroll-behavior: smooth;
+}
+
+input::placeholder {
+  color: #9699A3;
+  opacity: 1;
+}
+
+body::-webkit-scrollbar {
+  width: 6px;               /* ширина scrollbar */
+}
+body::-webkit-scrollbar-track {
+  background: #FFFFFF;        /* цвет дорожки */
+}
+body::-webkit-scrollbar-thumb {
+  background-color:#D1D1D1;    /* цвет плашки */
+  border-radius: 20px;       /* закругления плашки */
+}
+
+div::-webkit-scrollbar {
+  width: 10px;               /* ширина scrollbar */
+}
+div::-webkit-scrollbar-track {
+  background: #FFFFFF;        /* цвет дорожки */
+}
+div::-webkit-scrollbar-thumb {
+  background-color:#D1D1D1;    /* цвет плашки */
+  border-radius: 30px;       /* закругления плашки */
+  border: 3px solid white;
+}
+
+/* .scroll-padding{
+  scroll-padding-top: 20px;
+  -webkit-scroll-padding-top: 20px;
+} */
+.scroll-padding::-webkit-scrollbar-track {
+  margin-top: 20px;
+}
+
+.pagename-font{
+  @apply font-bold text-black text-[26px];
+}
+
+.big-section-font{
+  @apply font-semibold text-[24px] mb-2;
+}
+
+.input {
+  @apply h-[52px] w-full shadow-none border-none bg-[#F2F3F4] rounded-[10px] placeholder:font-medium placeholder:text-[18px] placeholder:leading-[24px] !text-[18px] !leading-[24px] !text-[#000000] !font-medium gap-[10px];
+}
+
+.section-title {
+  @apply text-[20px] font-medium;
+}
+
+.avatar {
+  @apply w-[48px] h-[48px] rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-2xl font-medium;
+}
+
+.page-header {
+  @apply bg-white h-[60px] w-full flex items-center fixed top-0 left-0 z-[300];
+}
+
+.page-name {
+  @apply font-bold text-black text-[24px];
+}
+
+.history-checkbox {
+  @apply shadow-none w-[10px] h-[10px] border-[0.5px] rounded-[2px] bg-[#F2F3F4] border-[#7700FF] data-[state=checked]:bg-[#F2F3F4]
+  data-[state=checked]:text-[#7700FF] data-[state=checked]:border-[#7700FF] transition-colors duration-200 flex items-center justify-center;
+}
+
+.dashboard-widget-font{
+  @apply font-medium mb-1;
+  font-size: 18px;
+  @media (min-width: 500px) {
+    font-size: 14px;
+  }
+  @media (min-width: 1090px) {
+    font-size: 16px;
+  }
+  @media (min-width: 1200px) {
+    font-size: 18px;
+  }
+}
+
+.dashboard-section-font{
+  @apply font-medium mb-1;
+  font-size: 18px;
+  @media (min-width: 600px) {
+    font-size: 10px;
+  }
+  @media (min-width: 970px) {
+    font-size: 12px;
+  }
+  @media (min-width: 1090px) {
+    font-size: 14px;
+  }
+  @media (min-width: 1210px) {
+    font-size: 18px;
+  }
+  @media (min-width: 1400px) {
+    font-size: 18px;
+  }
+}
+
+.small-add-button{
+  @apply flex items-center justify-center transition-all duration-200 
+  w-[22px] h-[22px] border border-[#CCCCCC] rounded-[6px] shadow-none
+  enabled:hover:border-[#7700FF] 
+  enabled:hover:shadow-[0_0_15px_rgba(119,0,255,0.2)];
+}
+
+.product-button{
+  @apply shadow-none w-full h-[52px] p-0 m-0 rounded-[10px];
+}
+
+.product-button-elem{
+  @apply flex items-center max-h-[52px] justify-between bg-[#F2F3F4] p-[10px] w-full rounded-[10px] text-[20px]
+  transition-all duration-200 ease-in-out border-[2px]
+  border border-transparent hover:border-[2px] hover:border-[#7700FF33];
+}
+
+.input-description{
+  @apply text-[12px] px-[0.5px] font-light text-[#9699A3] my-1
+}
+
+.add-warehouse-button{
+  @apply w-full h-[38px] cursor-pointer 
+  border-[#CCCCCC] border-[2px] rounded-[10px] text-[20px] text-[#7700FF]
+  flex items-center justify-between shadow
+  transition-all duration-200 ease-in-out
+  enabled:hover:shadow-[0_0_15px_rgba(119,0,255,0.2)]
+  enabled:hover:border-[#7700FF];
+}
+
+.warehouse-save-changes-button{
+  @apply h-[52px]
+  border-transparent border-[2px] rounded-[10px] text-[20px] text-[#7700FF]
+  flex items-center justify-between bg-[#F2F3F4]
+  shadow-none
+  transition-all duration-200 ease-in-out
+  enabled:hover:shadow-[0_0_15px_rgba(119,0,255,0.2)]
+  enabled:hover:border-[#7700FF];
+}
+
+.dialog-input-placeholder-text{
+  @apply font-medium !text-[16px] text-black;
+}
+
+.dialog-title-text{
+  @apply font-medium text-[24px] text-black mb-3;
+}
+
+.main-input{
+  @apply h-[52px] rounded-[10px] text-[20px] font-medium;
+}
+
+.select-warehouse{
+  @apply w-auto h-[38px] cursor-pointer 
+  border-[#CCCCCC] border-[2px] rounded-[10px] text-[20px] text-[#7700FF]
+  flex items-center justify-between 
+  bg-white shadow min-w-[220px]
+  transition-all duration-200 ease-in-out
+  enabled:hover:shadow-[0_0_15px_rgba(119,0,255,0.2)]
+  enabled:hover:border-[#7700FF];
+}
+
+.cancel-button{
+  @apply w-[50%] items-center rounded-[10px] text-[18px] text-white font-medium bg-[#FF4F12] cursor-pointer transition-all hover:brightness-90;
+}
+
+.confirm-button{
+  @apply w-[50%] rounded-[10px] text-[18px] text-white font-medium bg-[#7700FF] cursor-pointer transition-all hover:brightness-90;
+}
+
+.toggle-button{
+  @apply w-[49%] rounded-[10px] text-[14px] transition-all shadow-none hover:shadow-[0_0_10px_rgba(119,0,255,0.2)];
+}
+
+.toggle-active{
+  @apply bg-[#7700FF] text-white;
+}
+
+.toggle-inactive{
+  @apply bg-[#F7F0FF] text-[#7700FF];
+}
+
+.dashboard-card{
+  @apply col-span-2 bg-white rounded-[15px] p-[6px] pl-[12px] flex flex-col justify-between h-[102px];
+}
+
+.dashboard-card-load-font{
+  @media (min-width: 600px) {
+    font-size: 20px !important;
+  }
+  @media (min-width: 970px) {
+    font-size: 10px !important;
+  }
+  @media (min-width: 1090px) {
+    font-size: 12px !important;
+  }
+  @media (min-width: 1550px) {
+    font-size: 14px !important;
+  }
+  @media (min-width: 1800px) {
+    font-size: 20px !important;
+  }
+}
+
+.spinner-load-container{
+  @apply flex items-center justify-center text-[20px] text-[#9699A3] w-full h-full;
+}
+
+.context-menu-delete{
+  @apply cursor-pointer text-[#FF2626] hover:bg-[#FFD4D4] transition-all rounded-[10px];
+}
+
+.map-button{
+  @apply px-2 py-1 bg-white rounded-[10px] border-[1px] 
+  border border-[#CCCCCC] rounded-[6px] shadow-none
+  enabled:hover:bg-[#EEEEF0];
+}
+
+.map-button-icon{
+  @apply !h-[18px] !w-[18px];
+}
+
+.header-style{
+  @apply bg-white justify-between flex items-center h-[60px] px-[14px] z-10;
+}
+
+.faq-elem-style{
+  @apply flex flex-col gap-4 text-balance text-[16px];
+}
+
+.chart-container .recharts-surface {
+  outline: none !important;
+}
+
+.chart-container .recharts-wrapper:focus {
+  outline: none !important;
+}
+
+/* отключение outline при нажатии на график */
+.recharts-surface:focus {
+  outline: none !important; 
+}
+
+.recharts-default-tooltip{
+  border-radius: 10px;
+}
+
+.button-loading{
+  @apply cursor-progress opacity-50;
+}
+
+.exit-dialog-buttons{
+  @apply text-white text-[18px] flex-1 flex items-center gap-[8px] rounded-[10px] transition-all hover:brightness-90;
+}
+
+.mainpage-ref-error{
+  @apply text-[#9699A3] text-[30px] mt-10 hover:text-[#7700FF] underline cursor-pointer transition-all duration-200;
+}
+
+.not-found-container{
+  @apply flex items-center justify-center font-medium text-center h-full text-[#9699A3] text-[24px];
+}

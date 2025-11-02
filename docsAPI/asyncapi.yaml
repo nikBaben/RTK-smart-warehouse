@@ -1,0 +1,84 @@
+asyncapi: "2.6.0"
+info:
+  title: Warehouse WebSocket API
+  version: "1.0.0"
+  description: |
+    Реальное-временное API для мониторинга состояния роботов, склада и инвентаризации.
+    Используй WebSocket-подключение для получения обновлений о:
+      - активности роботов (`robot.activity_series`)
+      - снапшотах товаров (`product.snapshot`)
+      - изменениях и перемещениях (`product.changed`, `product.deleted`)
+      - уровнях зарядки (`robot.avg_battery`)
+
+servers:
+  production:
+    url: wss://api.example.com/ws
+    protocol: wss
+    description: Production сервер WebSocket
+
+channels:
+  /warehouses/{warehouse_id}:
+    description: Подключение к событиям конкретного склада.
+    parameters:
+      warehouse_id:
+        description: Уникальный ID склада (UUID)
+        schema:
+          type: string
+    subscribe:
+      summary: Получение обновлений склада
+      message:
+        contentType: application/json
+        payload:
+          type: object
+          oneOf:
+            - title: Robot Activity
+              description: Процент активных роботов на складе
+              properties:
+                type:
+                  type: string
+                  example: robot.activity_series
+                warehouse_id:
+                  type: string
+                window_min:
+                  type: integer
+                  example: 70
+                bucket_sec:
+                  type: integer
+                  example: 600
+                series:
+                  type: array
+                  items:
+                    type: array
+                    items:
+                      oneOf:
+                        - type: string
+                          description: ISO-время
+                        - type: number
+                          description: Процент активности
+                total_robots:
+                  type: integer
+                  example: 5
+
+            - title: Product Snapshot
+              description: Полный список товаров на складе
+              properties:
+                type:
+                  type: string
+                  example: product.snapshot
+                warehouse_id:
+                  type: string
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      category:
+                        type: string
+                      stock:
+                        type: integer
+                      status:
+                        type: string

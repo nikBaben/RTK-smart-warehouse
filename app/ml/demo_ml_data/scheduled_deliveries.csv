@@ -1,0 +1,3 @@
+id,product_id,warehouse_id,scheduled_at,quantity,status,created_at
+PLAN_DEMO_01,PROD_DEMO,WH_001,2025-11-03T10:00:00+00:00,30,scheduled,2025-10-31T18:25:49.918706+00:00
+PLAN_DEMO_02,PROD_DEMO,WH_001,2025-11-10T10:00:00+00:00,40,scheduled,2025-10-31T18:25:49.918720+00:00

@@ -1,0 +1,2 @@
+id,product_id,warehouse_id,stock,created_at
+SNAP_DEMO,PROD_DEMO,WH_001,120,2025-10-31T08:00:00+00:00
