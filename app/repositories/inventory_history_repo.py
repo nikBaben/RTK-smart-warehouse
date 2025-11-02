@@ -1,6 +1,6 @@
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, cast, Date, or_, distinct, func
+from sqlalchemy import select, cast, Date, or_, distinct, func, case
 from sqlalchemy.exc import IntegrityError
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timedelta
@@ -474,19 +474,22 @@ class InventoryHistoryRepository:
             row_num_val = int(row['row']) if row.get('row') and row['row'].strip() else None
             shelf = int(row['shelf']) if row.get('shelf') and row['shelf'].strip() else None
 
-            query = select(Product.category).filter(
-            Product.warehouse_id == warehouse_id,
-            Product.id == product_id,
+            query = select(Product.category, Product.article).filter(
+                Product.warehouse_id == warehouse_id,
+                Product.id == product_id,
             )
 
             result = await self.session.execute(query)
-            category = result.scalar_one_or_none()  
-            
+            row = result.first()
+
+            category, article = row
+
+
             new_record = InventoryHistory(
                 id=uuid.uuid4(),
                 warehouse_id=warehouse_id,
                 product_id=product_id,
-                article=product_id,
+                article=article,
                 name=product_name,
                 stock=quantity,
                 current_zone=zone,
@@ -501,3 +504,32 @@ class InventoryHistoryRepository:
         
 
         await self.session.commit()
+
+    async def get_statistic(
+        self, 
+        warehouse_id: str,
+    ) ->Dict:
+        
+        query = select(
+            func.count(InventoryHistory.id).label('total_records'),
+            func.count(func.distinct(InventoryHistory.product_id)).label('unique_products_count'),
+            func.sum(
+                case(
+                    (InventoryHistory.stock != func.coalesce(ScheduledDelivery.quantity, 0), 1),
+                    else_=0
+                )
+            ).label('discrepancy_count')
+        ).outerjoin(
+            ScheduledDelivery,
+            InventoryHistory.product_id == ScheduledDelivery.product_id
+        ).filter(
+            InventoryHistory.warehouse_id == warehouse_id
+        )
+
+        result = await self.session.execute(query).first()
+
+        return {
+            'total_records': result.total_records or 0,
+            'unique_products_count': result.unique_products_count or 0,
+            'discrepancy_count': result.discrepancy_count or 0
+        }
