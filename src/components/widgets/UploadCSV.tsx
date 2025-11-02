@@ -135,7 +135,7 @@ export function UploadCSV() {
 		}
 	};
 
-	const token = localStorage.getItem('token');
+	const token = localStorage.getItem('token') || sessionStorage.getItem('token');
 
 	const handleUpload = async () => {
 		if (!selectedWarehouse?.id) {

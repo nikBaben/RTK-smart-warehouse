@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://dev.rtk-smart-warehouse.ru/api/v1',
+  baseURL: 'myapp-api',
   headers: {
     "Content-Type": "application/json",
     timeout: 1000,

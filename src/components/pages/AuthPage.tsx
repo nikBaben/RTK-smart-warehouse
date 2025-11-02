@@ -27,7 +27,8 @@ function AuthPage() {
 		if (token) navigate('/')
 	}, [navigate])
 
-	const handleLogin = async () => {
+	const handleLogin = async (e: React.FormEvent) => {
+		e.preventDefault()
 		if (!email.trim() || !password.trim()) {
 			toast.error('Введите email и пароль')
 			return
@@ -77,14 +78,7 @@ function AuthPage() {
 			<main className='flex-1 flex flex-col items-center justify-center p-4 relative'>
 				<div className='flex flex-col gap-[20px]'>
 					<div className='w-[430px] h-[550px] bg-white rounded-[15px] overflow-hidden max-w-md p-8 flex flex-col items-center'>
-						<form
-							className='w-full flex flex-col gap-[20px]'
-							autoComplete='on'
-							onSubmit={e => {
-								e.preventDefault()
-								handleLogin()
-							}}
-						>
+						<div className='w-full flex flex-col gap-[20px]'>
 							<h1 className='text-2xl font-bold text-center mb-2'>
 								Войти на склад
 							</h1>
@@ -126,14 +120,15 @@ function AuthPage() {
 							</div>
 
 							<Button
+								type='button'
+								onClick={handleLogin}
 								disabled={!email || !password || loading}
-								type='submit'
 								className={`w-[365px] h-[68px] rounded-[10px] text-[18px]
-											leading-[24px] ${
-												!email || !password
-													? 'bg-[#CECECE] text-[#FFFFFF] cursor-not-allowed'
-													: 'bg-[#7700FF] text-[#FFFFFF]'
-											}`}
+							    leading-[24px] ${
+										!email || !password
+											? 'bg-[#CECECE] text-[#FFFFFF] cursor-not-allowed'
+											: 'bg-[#7700FF] text-[#FFFFFF]'
+									}`}
 							>
 								{loading ? (
 									<div className='flex items-center justify-center gap-2'>
@@ -158,7 +153,7 @@ function AuthPage() {
 									Забыли пароль?
 								</span>
 							</p>
-						</form>
+						</div>
 					</div>
 
 					<div className='w-full h-[123px] bg-white rounded-[15px] overflow-hidden max-w-md relative'>
