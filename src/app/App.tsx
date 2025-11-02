@@ -17,6 +17,7 @@ import InfoPage from '@/components/pages/InfoPage'
 import SettingsPage from '@/components/pages/SettingsPage'
 import NotFound from '@/app/not-found'
 import ServerErrorPage from '@/components/pages/ServerErrorPage';
+import { ProtectedRoute } from '@/components/routes/ProtectedRoute';
 
 function AppLayout() {
 	const location = useLocation()
@@ -36,14 +37,23 @@ function AppLayout() {
 			{!isHideNavbar && <Navbar />}
 			<main className='flex-1'>
 				<Routes>
-					<Route path='/' element={<DashboardPage />} />
+					<Route
+						path='/'
+						element={
+								<DashboardPage />
+						}
+					/>
 					<Route path='/auth' element={<AuthPage />} />
-					<Route path='/history' element={<HistoryPage />} />
+					<Route
+						path='/history'
+						element={
+								<HistoryPage />
+						}
+					/>
 					<Route path='/supplies' element={<SuppliesPage />} />
 					<Route path='/list' element={<ListPage />} />
-					<Route path='/info' element={<InfoPage />} />
 					<Route path='/settings' element={<SettingsPage />} />
-					<Route path='/500' element={<ServerErrorPage/>}/>
+					<Route path='/500' element={<ServerErrorPage />} />
 					<Route path='*' element={<NotFound />} />
 				</Routes>
 			</main>

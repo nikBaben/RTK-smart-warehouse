@@ -300,7 +300,8 @@ div::-webkit-scrollbar-thumb {
 }
 
 .not-found-container{
-  @apply flex items-center justify-center font-medium text-center h-full text-[#9699A3] text-[24px];
+  @apply flex items-center justify-center font-medium 
+  bg-[#F2F3F4] rounded-[10px] p-5 text-center h-full text-[#9699A3] text-[24px];
 }
 
 .checkbox-styles{
@@ -325,7 +326,7 @@ div::-webkit-scrollbar-thumb {
 
 .big-list-item-container{
   @apply flex justify-between items-center bg-[#F2F3F4] rounded-[10px] max-h-[60px] 
-  px-[10px] py-[10px] cursor-pointer transition-all border-[2px] border-transparent;
+  px-[10px] py-[10px] cursor-pointer transition-all border-[2px];
 }
 
 .supplies-export-excel{
@@ -341,4 +342,46 @@ div::-webkit-scrollbar-thumb {
 .history-chart-button{
   @apply h-[30px] w-[187px] text-[12px] text-white bg-[#7700FF] rounded-[10px] font-medium
   transition-all duration-200 hover:brightness-90;
+}
+
+.warehouse-list-name{
+  @apply font-medium text-black;
+  font-size: 20px;
+  @media (min-width: 600px) {
+    font-size: 12px;
+  }
+  @media (min-width: 800px) {
+    font-size: 14px;
+  }
+  @media (min-width: 910px) {
+    font-size: 18px;
+  }
+  @media (min-width: 1200px) {
+    font-size: 20px;
+  }
+}
+
+.warehouse-list-details{
+  @apply font-normal text-[#5A606D];
+  font-size: 14px;
+  @media (min-width: 600px) {
+    font-size: 8px;
+  }
+  @media (min-width: 800px) {
+    font-size: 10px;
+  }
+  @media (min-width: 1000px) {
+    font-size: 12px;
+  }
+  @media (min-width: 1200px) {
+    font-size: 14px;
+  }
+}
+
+.regis-button{
+  @apply w-[365px] h-[68px] rounded-[10px] text-[18px] text-[#7700FF] border-none bg-[#F7F0FF] shadow-none;
+}
+
+.login-add{
+  @apply w-[174px] h-[50px] rounded-[10px] text-[18px] bg-[#FFF1EC] text-[#FF4F12] shadow-none;
 }

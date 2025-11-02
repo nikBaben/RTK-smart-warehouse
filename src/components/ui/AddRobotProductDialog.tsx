@@ -151,7 +151,6 @@ export function AddRobotProductDialog() {
 					</div>
 					{mode === 'robot' ? (
 						<form onSubmit={handleAddRobot}>
-							<div className='min-h-[20px]'></div>
 							<DialogFooter>
 								<DialogClose asChild>
 									<Button className='cancel-button'>
@@ -177,7 +176,7 @@ export function AddRobotProductDialog() {
 						</form>
 					) : (
 						<form onSubmit={handleAddProduct}>
-							<div className='grid gap-3 pb-3'>
+							<div className='grid gap-3'>
 								<div className='grid gap-3 bg-white p-[10px] rounded-[10px]'>
 									<Label className='section-title' htmlFor='name'>
 										Укажите название вашего товара
@@ -236,12 +235,31 @@ export function AddRobotProductDialog() {
 											<SelectItem value='Комплектующие'>
 												Комплектующие
 											</SelectItem>
+											<SelectItem value='Сетевое оборудование'>
+												Сетевое оборудование
+											</SelectItem>
+											<SelectItem value='Драгоценные металлы'>
+												Драгоценные металлы
+											</SelectItem>
+											<SelectItem value='Оружие'>Оружие</SelectItem>
+											<SelectItem value='Еда'>
+												Еда
+											</SelectItem>
+											<SelectItem value='Заморозка'>
+												Заморозка
+											</SelectItem>
+											<SelectItem value='Другое'>Другое</SelectItem>
 										</SelectContent>
 									</Select>
 								</div>
-								<div className='grid gap-3 bg-white p-[10px] rounded-[10px]'>
+								<div className='grid bg-white p-[10px] rounded-[10px]'>
 									<Label className='section-title' htmlFor='current_position'>
 										Где расположен товар?
+									</Label>
+									<Label className='input-description'>
+										Это поле отвечает за позицию товара на складе и отдел.
+										Вводите координаты в формате "A-Z, 1-50" 1-9 - погрузка,
+										10-39 - хранение, 40-50 - разгрузка
 									</Label>
 									<Input
 										className='dialog-input-placeholder-text'
@@ -249,7 +267,7 @@ export function AddRobotProductDialog() {
 										name='current_position'
 										value={formData.current_position}
 										onChange={handleChange}
-										placeholder='Координаты сектора, в формате 1-50, A-Z'
+										placeholder='Координаты сектора, в формате A-Z, 1-50'
 										required
 									/>
 								</div>

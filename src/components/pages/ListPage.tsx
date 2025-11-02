@@ -715,6 +715,22 @@ function ListPage() {
 																		<SelectItem value='Комплектующие'>
 																			Комплектующие
 																		</SelectItem>
+																		<SelectItem value='Сетевое оборудование'>
+																			Сетевое оборудование
+																		</SelectItem>
+																		<SelectItem value='Драгоценные металлы'>
+																			Драгоценные металлы
+																		</SelectItem>
+																		<SelectItem value='Оружие'>
+																			Оружие
+																		</SelectItem>
+																		<SelectItem value='Еда'>Еда</SelectItem>
+																		<SelectItem value='Заморозка'>
+																			Заморозка
+																		</SelectItem>
+																		<SelectItem value='Другое'>
+																			Другое
+																		</SelectItem>
 																	</SelectContent>
 																</Select>
 															</div>
@@ -724,6 +740,12 @@ function ListPage() {
 																	htmlFor='current_position'
 																>
 																	Где расположен товар?
+																</Label>
+																<Label className='input-description'>
+																	Это поле отвечает за позицию товара на складе
+																	и отдел. Вводите координаты в формате "A-Z,
+																	1-50" 1-9 - погрузка, 10-39 - хранение, 40-50
+																	- разгрузка
 																</Label>
 																<Input
 																	className='dialog-input-placeholder-text'

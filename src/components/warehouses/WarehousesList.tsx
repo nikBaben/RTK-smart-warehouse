@@ -72,15 +72,13 @@ export const WarehouseList: FC<Props> = ({
 								}`}
 						>
 							<div className='flex items-center'>
-								<span className='text-[20px] font-medium text-black'>
-									{wh.name}
-								</span>
+								<span className='warehouse-list-name'>{wh.name}</span>
 							</div>
 							<div className='text-right space-y-0'>
-								<div className='text-[14px] font-normal text-[#5A606D]'>
-									адрес: {wh.address}
+								<div className='warehouse-list-details'>
+									{wh.address}
 								</div>
-								<div className='text-[14px] font-normal text-[#5A606D]'>
+								<div className='warehouse-list-details'>
 									текущее количество товаров: {wh.products_count}
 								</div>
 							</div>
