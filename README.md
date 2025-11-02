@@ -35,7 +35,7 @@
 
 **Компоненты проекта:**
 1. **Backend** — API на FastAPI   
-2. **Frontend** — React + Redux Toolkit (RTK Query)  
+2. **Frontend** — React + TypeScript  
 3. **AI Module** — прогнозирование и аналитика  
 4. **Database** — PostgreSQL  
 5. **Integration Layer** — обработка RTK-данных от внешних устройств  
@@ -46,10 +46,10 @@
 
 | Категория | Технологии |
 |------------|-------------|
-| 💻 Frontend | React, TypeScript, Vite, shadcn |
+| 💻 Frontend | React, TypeScript, Vite, shadcn/ui |
 | ⚙️ Backend | FastAPI, SQLAlchemy |
 | 🧠 Data & ML | Pandas, PyTorch |
-| 🗄 Database | PostgreSQL, Redis, Keyclock |
+| 🗄 Database | PostgreSQL, Redis, Keycloak |
 | 🧰 DevOps | Docker, GitHub Actions, YandexCloud|
 
 ---
