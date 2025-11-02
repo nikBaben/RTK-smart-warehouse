@@ -20,14 +20,24 @@ import { Spinner } from '@/components/ui/spinner'
 function AuthPage() {
 	const [email, setEmail] = useState('')
 	const [password, setPassword] = useState('')
+	const [remember, setRemember] = useState(false)
 	const [loading, setLoading] = useState(false)
 
 	const navigate = useNavigate()
 	const setUser = useUserStore(state => state.setUser)
+		
 	useEffect(()=>{
 		setEmail('')
 		setPassword('')
 	},[])
+
+	useEffect(()=>{
+		const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+		if (token) {
+			navigate('/')
+		}
+	}, [navigate])
+
 	const handleLogin = async () => {
 		if (!email?.trim() || !password) {
 			toast.error('Введите email и пароль')
@@ -38,18 +48,24 @@ function AuthPage() {
 		const payload = { email: email?.trim(), password }
 		try {
 			const response = await api.post('/auth/login',payload)
-			localStorage.setItem('token', response.data.token)
-			const userData = response.data.user
-			const [first_name, last_name = ''] = userData.name.split(' ')
+			const { token, user } = response.data
+			const [first_name, last_name = ''] = user.name.split(' ')
 
+			if (remember){
+				localStorage.setItem('token',token)
+			}
+			else{
+				sessionStorage.setItem('token', token)
+			}
+				
 			setUser({
-				id: userData.id,
+				id: user.id,
 				first_name,
 				last_name,
-				role: userData.role,
-				email: userData.email,
+				role: user.role,
+				email: user.email,
 			})
-			console.log(userData)
+			console.log(user)
 			navigate('/')
 		} catch (error) {
 			const err = error as AxiosError<{ error?: string }>
@@ -112,17 +128,9 @@ function AuthPage() {
 								</div>
 								<div className='flex items-center space-x-2'>
 									<Checkbox
-										className={`
-                        cursor-pointer
-                        shadow-none
-                        peer
-                        w-5 h-5 border-1 rounded-[5px]
-                        bg-[#F2F3F4] border-[#F2F3F4]
-                        data-[state=checked]:bg-[#F2F3F4]
-                        data-[state=checked]:text-[#7700FF]
-                        data-[state=checked]:border-[#7700FF]
-                        transition-colors duration-200
-                        flex items-center justify-center`}
+										checked={remember}
+										onCheckedChange={(val)=>setRemember(Boolean(val))}
+										className='checkbox-styles'
 									/>
 									<span className='text-[#000000] text-[16px] leading-[24px]'>
 										Запомнить меня

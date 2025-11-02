@@ -916,7 +916,7 @@ function ListPage() {
 																		className='dialog-input-placeholder-text'
 																		id='current_position'
 																		name='current_position'
-																		value={`${editedProduct?.current_row}, ${editedProduct?.current_shelf}`}
+																		value={`${editedProduct?.current_shelf}, ${editedProduct?.current_row}`}
 																		onChange={handleProductEditChange}
 																		placeholder='Координаты сектора, в формате 1-50, A-Z'
 																		required

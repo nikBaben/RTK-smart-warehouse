@@ -6,6 +6,7 @@ import AddLarge from '@atomaro/icons/24/action/AddLarge'
 import RemoveLarge from '@atomaro/icons/24/action/RemoveLarge'
 import Aim from '@atomaro/icons/24/communication/Aim'
 import { ButtonGroup } from '@/components/ui/button-group'
+import { Spinner } from '@/components/ui/spinner'
 import {
   TooltipProvider,
 	Tooltip,
@@ -19,7 +20,7 @@ const GRID_X = 26 // A–Z
 const GRID_Y = 50
 
 export function WarehouseMap() {
-	const { robotPositions, productSnapshot } = useSocketStore()
+	const { robotPositions, productSnapshot, loading, error } = useSocketStore()
 	const robots = robotPositions?.robots ?? []
 	const products = productSnapshot?.items ?? []
 
@@ -82,21 +83,25 @@ export function WarehouseMap() {
 				return {
 					circle: 'fill-[#3BD57C] stroke-[#078E40]',
 					tooltip: 'bg-[#3BD57C] border-[#078E40]',
+					name: 'активен',
 				}
 			case 'scanning':
 				return {
 					circle: 'fill-[#4C87FF] stroke-[#164AB3]',
 					tooltip: 'bg-[#4C87FF] border-[#164AB3]',
+					name: 'сканирует',
 				}
 			case 'charging':
 				return {
 					circle: 'fill-[#FDB840] stroke-[#B1740B]',
 					tooltip: 'bg-[#FDB840] border-[#B1740B]',
+					name: 'на зарядке',
 				}
 			default:
 				return {
 					circle: 'fill-[#585D69] stroke-[#585D69]',
 					tooltip: 'bg-[#585D69] border-[#585D69]',
+					name: 'неизвестен',
 				}
 		}
 	}
@@ -111,13 +116,13 @@ export function WarehouseMap() {
 				}
 			case 'low':
 				return {
-					rect: 'fill-[#4C87FF]',
-					tooltip: 'bg-[#4C87FF]',
+					rect: 'fill-[#FDB840]',
+					tooltip: 'bg-[#FDB840]',
 				}
 			case 'critical':
 				return {
-					rect: 'fill-[#FDB840]',
-					tooltip: 'bg-[#FDB840]',
+					rect: 'fill-[#FF5151]',
+					tooltip: 'bg-[#FF5151]',
 				}
 			default:
 				return {
@@ -158,11 +163,11 @@ export function WarehouseMap() {
 			case 'ok':
 				return 'ОК'
 			case 'low':
-				return 'Низкий остаток'
+				return 'низкий остаток'
 			case 'critical':
-				return 'Критично'
+				return 'критично'
 			default:
-				return 'Неизвестен'
+				return 'неизвестен'
 		}
 	}
 
@@ -201,167 +206,185 @@ export function WarehouseMap() {
 	return (
 		<div
 			ref={containerRef}
-			className='relative w-full h-full bg-[#F6F7F7] overflow-hidden rounded-[10px]'
+			className='relative w-full h-[97%] bg-[#F6F7F7] overflow-hidden rounded-[10px]'
 		>
-			<svg
-				className={`absolute top-0 left-0 w-full h-full ${
-					isDragging ? 'cursor-grabbing' : 'cursor-default'
-				}`}
-				viewBox={`0 0 ${size.width + 20} ${size.height + 20}`}
-				preserveAspectRatio='xMidYMid meet'
-				onMouseDown={handleMouseDown}
-				onMouseUp={handleMouseUp}
-				onMouseMove={handleMouseMove}
-			>
-				<motion.g
-					animate={{
-						x: transform.x,
-						y: transform.y,
-						scale: transform.scale,
-					}}
-					transition={{ duration: 0.1 }}
+			{loading ? (
+				<div className='animate-pulse spinner-load-container dashboard-card-load-font !text-[24px]'>
+					<Spinner className='size-4 m-1' /> строим карту склада...
+				</div>
+			) : error ? (
+				<div className='spinner-load-container dashboard-card-load-font'>
+					<span>ошибка при загрузке карты: </span>
+					{error}
+				</div>
+			) : (
+				<svg
+					className={`absolute top-0 left-0 w-full h-full ${
+						isDragging ? 'cursor-grabbing' : 'cursor-default'
+					}`}
+					viewBox={`0 0 ${size.width + 20} ${size.height + 20}`}
+					preserveAspectRatio='xMidYMid meet'
+					onMouseDown={handleMouseDown}
+					onMouseUp={handleMouseUp}
+					onMouseMove={handleMouseMove}
 				>
-					<g transform={`translate(${offsetX}, ${offsetY})`}>
-						<rect
-							x={0}
-							y={0}
-							width={gridWidth}
-							height={gridHeight / 4}
-							fill='#FFD6D6'
-							opacity={0.3}
-						/>
-						<rect
-							x={0}
-							y={gridHeight/4}
-							width={gridWidth}
-							height={gridHeight / 2}
-							fill='#D6FFD6'
-							opacity={0.3}
-						/>
-						<rect
-							x={0}
-							y={(gridHeight/4)*3}
-							width={gridWidth}
-							height={gridHeight / 4}
-							fill='#D6E0FF'
-							opacity={0.3}
-						/>
-						{/* СЕТКА */}
-						{letters.map((_, i) => (
-							<line
-								key={`v-${i}`}
-								x1={i * cellWidth}
-								y1={0}
-								x2={i * cellWidth}
-								y2={size.height}
-								stroke='#aaa'
-								strokeDasharray='4'
+					<motion.g
+						animate={{
+							x: transform.x,
+							y: transform.y,
+							scale: transform.scale,
+						}}
+						transition={{ duration: 0.1 }}
+					>
+						<g transform={`translate(${offsetX}, ${offsetY})`}>
+							<rect
+								x={0}
+								y={0}
+								width={gridWidth}
+								height={gridHeight / 4}
+								fill='#FFD6D6'
+								opacity={0.3}
 							/>
-						))}
-						{numbers.map((_, i) => (
-							<line
-								key={`h-${i}`}
-								x1={0}
-								y1={i * cellHeight}
-								x2={size.width}
-								y2={i * cellHeight}
-								stroke='#aaa'
-								strokeDasharray='4'
+							<rect
+								x={0}
+								y={gridHeight / 4}
+								width={gridWidth}
+								height={gridHeight / 2}
+								fill='#D6FFD6'
+								opacity={0.3}
 							/>
-						))}
+							<rect
+								x={0}
+								y={(gridHeight / 4) * 3}
+								width={gridWidth}
+								height={gridHeight / 4}
+								fill='#D6E0FF'
+								opacity={0.3}
+							/>
+							{/* СЕТКА */}
+							{letters.map((_, i) => (
+								<line
+									key={`v-${i}`}
+									x1={i * cellWidth}
+									y1={0}
+									x2={i * cellWidth}
+									y2={size.height}
+									stroke='#aaa'
+									strokeDasharray='4'
+								/>
+							))}
+							{numbers.map((_, i) => (
+								<line
+									key={`h-${i}`}
+									x1={0}
+									y1={i * cellHeight}
+									x2={size.width}
+									y2={i * cellHeight}
+									stroke='#aaa'
+									strokeDasharray='4'
+								/>
+							))}
 
-						{/* ТОВАРЫ */}
-						{products.map((item, index) => (
-							<TooltipProvider>
-								<Tooltip>
-									<TooltipTrigger asChild>
-										<rect
-											key={index}
-											x={item.current_shelf * cellWidth}
-											y={(GRID_Y - item.current_row - 1) * cellHeight}
-											width={cellWidth}
-											height={cellHeight}
-											className={`
-												${getProductStatusFill(item.status).rect}
-												${getProductStatusBorder(getMinutesAgo(item.created_at)).rect}`
-											}
-											opacity={1}
-											stroke='#ffffff'
-											rx={2}
-										/>
-									</TooltipTrigger>
-									<TooltipContent
-										className={`
-											${getProductStatusFill(item.status).tooltip}
-											${getProductStatusBorder(getMinutesAgo(item.created_at)).tooltip} p-2 border-[1px] text-[10px]`}
-									>
-										<p>имя: {item.name}</p>
-										<Separator className='bg-black' />
-										<p>кол-во: {item.stock}</p>
-										<Separator className='bg-black' />
-										<p>статус: {getStatusName(item.status)}</p>
-										<Separator className='bg-black' />
-										<p>скан: {getMinutesAgo(item.created_at)} мин. назад</p>
-									</TooltipContent>
-								</Tooltip>
-							</TooltipProvider>
-						))}
-
-						{/* РОБОТЫ */}
-						{robots.map((robot, index) => (
-							<TooltipProvider>
-								<Tooltip>
-									<TooltipTrigger asChild>
-										<motion.g
-											key={index}
-											animate={{
-												x: robot.x * cellWidth,
-												y: (GRID_Y - robot.y) * cellHeight,
-											}}
-											transition={{ duration: 0.8, ease: 'easeInOut' }}
-										>
-											<circle
-												r={Math.min(cellWidth, cellHeight) * 0.4}
-												strokeWidth={0.5}
-												className={`${
-													getRobotStatusStyles(robot.status).circle
-												}`}
+							{/* ТОВАРЫ */}
+							{products.map((item, index) => (
+								<TooltipProvider>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<rect
+												key={index}
+												x={item.current_shelf * cellWidth}
+												y={(GRID_Y - item.current_row - 1) * cellHeight}
+												width={cellWidth}
+												height={cellHeight}
+												className={`
+													${getProductStatusFill(item.status).rect}
+													${getProductStatusBorder(getMinutesAgo(item.created_at)).rect}`}
+												opacity={1}
+												stroke='#ffffff'
+												rx={2}
 											/>
-											<text
-												className='select-none'
-												textAnchor='middle'
-												dominantBaseline='middle'
-												fontSize={Math.min(cellWidth, cellHeight) * 0.5}
-												fill='white'
-												fontWeight='bold'
+										</TooltipTrigger>
+										<TooltipContent
+											className={`
+												${getProductStatusFill(item.status).tooltip}
+												${
+													getProductStatusBorder(getMinutesAgo(item.created_at))
+														.tooltip
+												} p-2 border-[1px] text-[10px]`}
+										>
+											<p>имя: {item.name}</p>
+											<Separator className='bg-black' />
+											<p>кол-во: {item.stock}</p>
+											<Separator className='bg-black' />
+											<p>статус: {getStatusName(item.status)}</p>
+											<Separator className='bg-black' />
+											<p>скан: {getMinutesAgo(item.created_at)} мин. назад</p>
+										</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
+							))}
+
+							{/* РОБОТЫ */}
+							{robots.map((robot, index) => (
+								<TooltipProvider>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<motion.g
+												key={index}
+												animate={{
+													x: robot.x * cellWidth,
+													y: (GRID_Y - robot.y) * cellHeight,
+												}}
+												transition={{ duration: 0.8, ease: 'easeInOut' }}
 											>
-												{index + 1}
-											</text>
-										</motion.g>
-									</TooltipTrigger>
-									<TooltipContent
-										className={`${
-											getRobotStatusStyles(robot.status).tooltip
-										} p-2 border-[1px] text-[10px]`}
-									>
-										<p>id: {robot.robot_id}</p>
-										<Separator className='bg-black' />
-										<p>заряд: {robot.battery_level}%</p>
-										<Separator className='bg-black' />
-										<p>
-											обновлено: &nbsp;
-											{new Date(robot.updated_at).toLocaleTimeString('ru-RU', {
-												hour: '2-digit',
-												minute: '2-digit',
-											})}
-										</p>
-									</TooltipContent>
-								</Tooltip>
-							</TooltipProvider>
-						))}
-					</g>
-				</motion.g>
-			</svg>
+												<circle
+													r={Math.min(cellWidth, cellHeight) * 0.4}
+													strokeWidth={0.5}
+													className={`${
+														getRobotStatusStyles(robot.status).circle
+													}`}
+												/>
+												<text
+													className='select-none'
+													textAnchor='middle'
+													dominantBaseline='middle'
+													fontSize={Math.min(cellWidth, cellHeight) * 0.5}
+													fill='white'
+													fontWeight='bold'
+												>
+													{index + 1}
+												</text>
+											</motion.g>
+										</TooltipTrigger>
+										<TooltipContent
+											className={`${
+												getRobotStatusStyles(robot.status).tooltip
+											} p-2 border-[1px] text-[10px]`}
+										>
+											<p>id: {robot.robot_id}</p>
+											<Separator className='bg-black' />
+											<p>заряд: {robot.battery_level}%</p>
+											<Separator className='bg-black' />
+											<p>статус: {getRobotStatusStyles(robot.status).name}</p>
+											<Separator className='bg-black' />
+											<p>
+												обновлено: &nbsp;
+												{new Date(robot.updated_at).toLocaleTimeString(
+													'ru-RU',
+													{
+														hour: '2-digit',
+														minute: '2-digit',
+													}
+												)}
+											</p>
+										</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
+							))}
+						</g>
+					</motion.g>
+				</svg>
+			)}
 			<div className='absolute bottom-4 right-4 flex flex-col gap-2'>
 				<Button
 					onClick={centerMap}

@@ -13,7 +13,7 @@ interface UserState {
 	user: User | null
 	setUser: (user: User) => void
 	updateUser: (partial: Partial<User>) => void
-	clearUser: () => void
+	logout: () => void
 }
 
 
@@ -26,7 +26,11 @@ export const useUserStore = create<UserState>()(
 				set(state =>
 					state.user ? { user: { ...state.user, ...partial } } : state
 				),
-			clearUser: () => set({ user: null }),
+			logout: () => {
+				localStorage.removeItem('token')
+				sessionStorage.removeItem('token')
+				set({user:null})
+			},
 		}),
 		{
 			name: 'user-storage',

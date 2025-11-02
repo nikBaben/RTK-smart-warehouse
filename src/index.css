@@ -7,12 +7,14 @@
 body {
   font-family: "RostelecomBasis", system-ui, sans-serif;
   color: rgb(17 24 39);
-  background-color: rgb(249 250 251);
-  margin: 0;
+  background-color: #FFFFFF;
+  margin-bottom: 0;
+  padding-bottom: 0;
   min-width: 320px;
   scroll-behavior: smooth;
   min-height: 100vh;
 }
+
 div{
   scroll-behavior: smooth;
 }
@@ -112,11 +114,29 @@ div::-webkit-scrollbar-thumb {
   @media (min-width: 1090px) {
     font-size: 14px;
   }
-  @media (min-width: 1210px) {
+  @media (min-width: 1323px) {
     font-size: 18px;
   }
-  @media (min-width: 1400px) {
+}
+
+.dashboard-card-data{
+  @apply text-[28px] font-bold text-center;
+}
+
+.dashboard-avg-status-data{
+  @apply font-bold text-center;
+  font-size: 28px;
+  @media (min-width: 600px) {
     font-size: 18px;
+  }
+  @media (min-width: 1070px) {
+    font-size: 22px;
+  }
+  @media (min-width: 1230px) {
+    font-size: 26px;
+  }
+  @media (min-width: 1310px) {
+    font-size: 28px;
   }
 }
 
@@ -225,7 +245,7 @@ div::-webkit-scrollbar-thumb {
 }
 
 .spinner-load-container{
-  @apply flex items-center justify-center text-[20px] text-[#9699A3] w-full h-full;
+  @apply flex text-center items-center justify-center text-[20px] text-[#9699A3] w-full h-full;
 }
 
 .context-menu-delete{
@@ -281,4 +301,24 @@ div::-webkit-scrollbar-thumb {
 
 .not-found-container{
   @apply flex items-center justify-center font-medium text-center h-full text-[#9699A3] text-[24px];
+}
+
+.checkbox-styles{
+  @apply cursor-pointer shadow-none w-5 h-5 border-1 rounded-[5px] flex
+  bg-[#F2F3F4] border-[#F2F3F4] transition-colors duration-200 items-center justify-center
+  data-[state=checked]:bg-[#F2F3F4]
+  data-[state=checked]:text-[#7700FF]
+  data-[state=checked]:border-[#7700FF];                     
+}
+
+.settings-page-buttons{
+  @apply flex flex-1 h-[40px] border-[2px] text-[18px] items-center rounded-[10px] transition-all duration-200 hover:brightness-95;
+}
+
+.depleted-table-grid{
+  @apply flex items-center grid grid-cols-12 justify-between bg-[#F6F7F7] rounded-[10px] px-3 h-[54px];
+}
+
+.refresh-button{
+  @apply p-1 rounded-[5px] bg-[#DEDFE1] transition-all hover:brightness-90 h-[25px] w-[25px];
 }

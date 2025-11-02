@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { ReadyState } from 'react-use-websocket'
 import { subscribeWithSelector } from 'zustand/middleware'
+import { toast } from 'sonner'
 
 type RobotAvgBattery = {
   type: 'robot.avg_battery'
@@ -124,6 +125,10 @@ interface SocketState {
 	robotPositions?: RobotPositions
 	productSnapshot?: ProductSnapshot
 	connectionState: ReadyState
+
+	loading: boolean
+	error?: string | null
+
 	updateData: (msg: SocketMessage) => void
 	resetData: () => void
 	setConnectionState: (state: ReadyState) => void
@@ -139,47 +144,59 @@ export const useSocketStore = create(
 		activitySeries: undefined,
 		productScan: undefined,
 		connectionState: ReadyState.CLOSED,
+		loading: true,
+		error: null,
 		setConnectionState: state => set({ connectionState: state }),
+		setLoading: (loading: boolean) => set({ loading }),
+		setError: (error: string | null) => set({ error }),
 
 		updateData: msg => {
-			switch (msg.type) {
-				case 'robot.avg_battery':
-					set({ avgBattery: msg });
-					break
-				case 'robot.active_robots':
-					set({ robotsData: msg });
-					break
-				case 'inventory.scanned_24h':
-					set({ scanned24h: msg });
-					break
-				case 'inventory.critical_unique':
-					set({ criticalUnique: msg });
-					break
-				case 'inventory.status_avg':
-					set({ statusAvg: msg });
-					break
-				case 'robot.activity_series':
-					set(state => {
-						if (
-							JSON.stringify(state.activitySeries?.series) ===
-							JSON.stringify(msg.series)
-						) {
-							return {} // ничего не меняем, чтобы не вызавать ререндер
-						}
-						return { activitySeries: msg } // заменяем полностью
-					})
-					break
-				case 'product.scan':
-					set({ productScan: msg });
-					break
-				case 'robot.positions':
-					set({ robotPositions: msg });
-					break
-				case 'product.snapshot':
-					set({ productSnapshot: msg });
-					break
-				default:
-					console.warn('⚠️ Неизвестный тип сообщения:', msg)
+			try{
+				set({loading:true,error:null})
+								switch (msg.type) {
+					case 'robot.avg_battery':
+						set({ avgBattery: msg })
+						break
+					case 'robot.active_robots':
+						set({ robotsData: msg })
+						break
+					case 'inventory.scanned_24h':
+						set({ scanned24h: msg })
+						break
+					case 'inventory.critical_unique':
+						set({ criticalUnique: msg })
+						break
+					case 'inventory.status_avg':
+						set({ statusAvg: msg })
+						break
+					case 'robot.activity_series':
+						set(state => {
+							if (
+								JSON.stringify(state.activitySeries?.series) ===
+								JSON.stringify(msg.series)
+							) {
+								return {} // ничего не меняем, чтобы не вызавать ререндер
+							}
+							return { activitySeries: msg } // заменяем полностью
+						})
+						break
+					case 'product.scan':
+						set({ productScan: msg })
+						break
+					case 'robot.positions':
+						set({ robotPositions: msg })
+						break
+					case 'product.snapshot':
+						set({ productSnapshot: msg })
+						break
+					default:
+						console.warn('⚠️ Неизвестный тип сообщения:', msg)
+				}
+				set({ loading: false })
+			} catch (err){
+				toast.error('Ошибка при обновлении сокета')
+				console.error('Ошибка при обновлении сокета:', err)
+				set({ loading: false, error: (err as Error).message })
 			}
 		},
 		resetData: () => {
@@ -191,6 +208,8 @@ export const useSocketStore = create(
 				statusAvg: undefined,
 				activitySeries: undefined,
 				productScan: undefined,
+				loading: true,
+				error: null,
 			})
 		},
 	}))

@@ -1,5 +1,6 @@
 import api from '@/api/axios.ts'
 import { useState } from 'react'
+import { Spinner } from '@/components/ui/spinner'
 import {
 	Dialog,
 	DialogClose,
@@ -84,7 +85,9 @@ export function AddRobotProductDialog() {
 			return
 		}
 		try {
-			const [rowPos, shelfPos] = formData.current_position.split(',').map(s => s.trim())
+			const [shelfPos, rowPos] = formData.current_position
+				.split(',')
+				.map(s => s.trim())
 			const payload = {
 				name: formData.name,
 				article: formData.article,
@@ -162,7 +165,13 @@ export function AddRobotProductDialog() {
 									disabled={loading}
 								>
 									<Check className='!h-5 !w-5' />
-									{loading ? 'Добавление...' : 'Подтвердить'}
+									{loading ? (
+										<div className='spinner-load-container !text-white'>
+											<Spinner className='size-5 m-1' /> Добавление...
+										</div>
+									) : (
+										'Подтвердить'
+									)}
 								</Button>
 							</DialogFooter>
 						</form>
