@@ -63,7 +63,7 @@ export const useUserStore = create<UserState>()(
 
 				set({ token, rememberMe: remember })
 
-				// Загружаем данные пользователя после логина
+				// Получаем данные пользователя
 				const profile = await api.get('/auth/profile', {
 					headers: { Authorization: `Bearer ${token}` },
 				})
@@ -72,14 +72,11 @@ export const useUserStore = create<UserState>()(
 		}),
 		{
 			name: 'user-storage',
+			// сохраняем всё, кроме пароля (которого нет)
 			partialize: state => ({
-				user: state.user
-					? {
-							id: state.user.id,
-							email: state.user.email,
-							role: state.user.role,
-					  }
-					: null,
+				user: state.user,
+				token: state.token,
+				rememberMe: state.rememberMe,
 			}),
 		}
 	)

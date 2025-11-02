@@ -40,20 +40,60 @@ function AppLayout() {
 					<Route
 						path='/'
 						element={
+							<ProtectedRoute>
 								<DashboardPage />
+							</ProtectedRoute>
 						}
 					/>
 					<Route path='/auth' element={<AuthPage />} />
 					<Route
 						path='/history'
 						element={
+							<ProtectedRoute>
 								<HistoryPage />
+							</ProtectedRoute>
 						}
 					/>
-					<Route path='/supplies' element={<SuppliesPage />} />
-					<Route path='/list' element={<ListPage />} />
-					<Route path='/settings' element={<SettingsPage />} />
-					<Route path='/500' element={<ServerErrorPage />} />
+					<Route
+						path='/supplies'
+						element={
+							<ProtectedRoute>
+								<SuppliesPage />
+							</ProtectedRoute>
+						}
+					/>
+					<Route
+						path='/list'
+						element={
+							<ProtectedRoute>
+								<ListPage />
+							</ProtectedRoute>
+						}
+					/>
+					<Route
+						path='/info'
+						element={
+							<ProtectedRoute>
+								<InfoPage />
+							</ProtectedRoute>
+						}
+					/>
+					<Route
+						path='/settings'
+						element={
+							<ProtectedRoute>
+								<SettingsPage />
+							</ProtectedRoute>
+						}
+					/>
+					<Route
+						path='/500'
+						element={
+							<ProtectedRoute>
+								<ServerErrorPage />
+							</ProtectedRoute>
+						}
+					/>
 					<Route path='*' element={<NotFound />} />
 				</Routes>
 			</main>
