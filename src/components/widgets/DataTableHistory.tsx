@@ -206,10 +206,14 @@ export function DataTableHistory<T extends { id: string }>(props: DataTableHisto
                     }}
                   >
                     {columns.map((col, index) => {
-                      const value =
+                      let value =
                         typeof col.accessor === "function"
                           ? col.accessor(item)
                           : (item[col.accessor as keyof T] as React.ReactNode);
+
+                      if (value === null || value === undefined || value === "") {
+                        value = "—";
+                      }
 
                       const isFirst = index === 0;
                       const isLast = index === columns.length - 1;

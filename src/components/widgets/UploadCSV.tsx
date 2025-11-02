@@ -19,15 +19,19 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-
 import { motion, AnimatePresence } from "framer-motion";
-
 import { Button } from '@/components/ui/button';
 import Download from '@atomaro/icons/24/action/Download';
 import CSV from '@atomaro/icons/24/document/CSV';
-import { FileText } from "lucide-react";
 import CheckLarge from "@atomaro/icons/24/navigation/CheckLarge";
 import CloseLarge from "@atomaro/icons/24/navigation/CloseLarge";
+
+import MiniSelectWarehouse from '../ui/MiniSelectWarehouse.tsx';
+import { useWarehouseStore } from '@/store/useWarehouseStore';
+import { toast } from 'sonner';
+import { FancyProgress } from '@/components/ui/FancyProgress';
+
+
 
 const readFileWithEncoding = (file: File): Promise<string> => {
 	return new Promise((resolve, reject) => {
@@ -74,7 +78,11 @@ const parseCSV = (text: string) => {
 export function UploadCSV() {
 	const [files, setFiles] = useState<File[] | undefined>();
 	const [csvPreview, setCsvPreview] = useState<string[][] | null>(null);
-	const [error, setError] = useState<string | null>(null);
+	const [isUploading, setIsUploading] = useState(false);
+	const [success, setSuccess] = useState(false);
+	const [uploadProgress, setUploadProgress] = useState(0);
+
+	const { selectedWarehouse } = useWarehouseStore();
 
 	const expectedHeaders = [
 		'product_id',
@@ -87,12 +95,11 @@ export function UploadCSV() {
 	];
 
 	const handleDrop = async (acceptedFiles: File[]) => {
-		setError(null);
 		setCsvPreview(null);
 
 		const csvFiles = acceptedFiles.filter(file => file.name.toLowerCase().endsWith('.csv'));
 		if (csvFiles.length === 0) {
-			setError('Пожалуйста, выберите CSV файл');
+			toast.error('Пожалуйста, выберите CSV файл');
 			return;
 		}
 
@@ -102,13 +109,13 @@ export function UploadCSV() {
 		try {
 			const text = await readFileWithEncoding(file);
 			if (!text.trim()) {
-				setError('CSV файл пустой');
+				toast.error('CSV файл пустой');
 				return;
 			}
 
 			const rows = parseCSV(text);
 			if (!rows.length) {
-				setError('Не удалось прочитать содержимое CSV');
+				toast.error('Не удалось прочитать содержимое CSV');
 				return;
 			}
 
@@ -116,22 +123,75 @@ export function UploadCSV() {
 			const missing = expectedHeaders.filter(h => !headers.includes(h));
 
 			if (missing.length > 0) {
-				setError(`Некорректный CSV формат. Отсутствуют колонки: ${missing.join(', ')}`);
+				toast.error(`Некорректный CSV формат. Отсутствуют колонки: ${missing.join(', ')}`);
 				return;
 			}
 
-			const previewRows = rows.slice(0, 6); // первые 5 строк + заголовки
+			const previewRows = rows.slice(0, 6);
 			setCsvPreview(previewRows);
 		} catch (err) {
-			setError('Ошибка при чтении файла');
+			toast.error('Ошибка при чтении файла');
 			console.error(err);
 		}
 	};
 
-	const handleUpload = () => {
-		alert('Файл успешно загружен!');
-		setFiles(undefined);
-		setCsvPreview(null);
+	const token = localStorage.getItem('token');
+
+	const handleUpload = async () => {
+		if (!selectedWarehouse?.id) {
+			toast.error("Выберите склад перед загрузкой файла");
+			return;
+		}
+		if (!files?.[0]) {
+			toast.error("Файл не выбран");
+			return;
+		}
+
+		setIsUploading(true);
+		setSuccess(false);
+		setUploadProgress(0);
+
+		const formData = new FormData();
+		formData.append('csv_file', files[0]);
+
+		try {
+			await new Promise<void>((resolve, reject) => {
+				const xhr = new XMLHttpRequest();
+				xhr.open('POST', `https://dev.rtk-smart-warehouse.ru/api/v1/inventory_history/import_inventory_from_csv/${selectedWarehouse.id}`);
+				xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+				xhr.upload.onprogress = (event) => {
+					if (event.lengthComputable) {
+						const percent = Math.round((event.loaded / event.total) * 100);
+						setUploadProgress(percent);
+					}
+				};
+
+				xhr.onload = () => {
+					if (xhr.status >= 200 && xhr.status < 300) {
+						setSuccess(true);
+						toast.success("Файл успешно загружен!");
+						setTimeout(() => {
+							setFiles(undefined);
+							setCsvPreview(null);
+							setSuccess(false);
+							setUploadProgress(0);
+						}, 2000);
+						resolve();
+					} else {
+						reject(xhr.responseText);
+					}
+				};
+
+				xhr.onerror = () => reject('Ошибка при загрузке файла');
+				xhr.send(formData);
+			});
+		} catch (err) {
+			console.error(err);
+			toast.error('Не удалось отправить файл на сервер');
+		} finally {
+			setIsUploading(false);
+		}
 	};
 
 	return (
@@ -145,28 +205,27 @@ export function UploadCSV() {
 				</button>
 			</DialogTrigger>
 
-			<DialogContent className='max-w-[558px] max-h-[276px] bg-[#F4F4F5] text-black py-[10px] px-[20px] rounded-[15px] flex flex-col gap-[5px]'>
-				<DialogHeader>
+			<DialogContent className='max-w-[558px] max-h-[326px] bg-[#F4F4F5] text-black py-[10px] px-[20px] rounded-[15px] flex flex-col gap-[5px]'>
+				<DialogHeader className='flex flex-row justify-between pr-[15px]'>
 					<DialogTitle className='text-[24px]'>Загрузить CSV</DialogTitle>
+					<MiniSelectWarehouse />
 				</DialogHeader>
 
 				{/* === Этап выбора файла === */}
 				{!csvPreview && (
 					<div className='h-[207px] flex flex-col items-center justify-center'>
-							<Dropzone
-								accept={{ 'text/csv': ['.csv'] }}
-								maxFiles={1}
-								onDrop={handleDrop}
-								onError={console.error}
-								src={files}
-								className={cn(
-									'relative w-[450px] h-[150px] rounded-[12px] border-2 border-dashed flex flex-col items-center justify-center transition-all duration-300 ease-out cursor-pointer overflow-hidden outline-none ring-0 select-none',
-									files && files.length > 0
+						<Dropzone
+							accept={{ 'text/csv': ['.csv'] }}
+							maxFiles={1}
+							onDrop={handleDrop}
+							src={files}
+							className={cn(
+								'relative w-[450px] h-[150px] rounded-[12px] border-2 border-dashed flex flex-col ring-0 items-center justify-center transition-all duration-300 ease-out cursor-pointer overflow-hidden',
+								files && files.length > 0
 									? 'border-[#7700FF] bg-[#F3EFFF]'
 									: 'border-[#c28dff] bg-[#F4F4F5] hover:border-[#7700FF] hover:bg-[#F3F1FF]'
-								)}
-							>
-
+							)}
+						>
 							<AnimatePresence mode="wait">
 								{files && files.length > 0 ? (
 									<motion.div
@@ -182,9 +241,6 @@ export function UploadCSV() {
 												<p className="text-[#7700FF] font-semibold text-[16px]">
 													{files[0].name}
 												</p>
-												{error && (
-													<p className='text-red-500 text-[13px] font-medium mt-3'>{error}</p>
-												)}
 											</div>
 										</DropzoneContent>
 									</motion.div>
@@ -214,80 +270,87 @@ export function UploadCSV() {
 									</motion.div>
 								)}
 							</AnimatePresence>
-							<AnimatePresence>
-								{files && files.length === 0 && (
-									<motion.div
-									key="glow"
-									className="absolute inset-0 rounded-[12px] pointer-events-none bg-gradient-to-r from-[#7700FF]/20 to-[#B388FF]/20"
-									initial={{ opacity: 0 }}
-									animate={{ opacity: 1 }}
-									exit={{ opacity: 0 }}
-									transition={{ duration: 0.3 }}
-									/>
-								)}
-							</AnimatePresence>
 						</Dropzone>
 					</div>
 				)}
 
-				{/* === Этап предпросмотра === */}
 				{csvPreview && (
-					<div className='flex flex-col w-[518px] h-[276px] gap-[3px]'>
-						<div className='bg-white w-[518px] h-[189px] rounded-[10px] px-[10px]'>
-							<div className='w-[498px] h-[26px]'>
-								<h2 className='text-black text-[18px] font-medium'>
-									{files?.[0]?.name ? `${files[0].name} — предпросмотр` : 'предпросмотр'}
-								</h2>
+					<div className='flex flex-col w-[518px] h-[276px] gap-[5px] relative'>
+
+						{isUploading ? (
+							<div className='flex flex-col items-center justify-center w-full h-full bg-white rounded-[10px]'>
+								<FancyProgress value={uploadProgress}/>
+								<p className='text-[#5A606D] text-[14px] mb-2'>Загрузка: {uploadProgress}%</p>
 							</div>
-							<Table className='w-[498px] text-center border-separate border-spacing-y-[5px] text-[10px]'>
-								<TableHeader className="sticky top-0 bg-white z-10">
-									<TableRow>
-										{csvPreview[0].map((col, i) => (
-											<TableHead key={i} className='border-none'>
-												{col}
-											</TableHead>
-										))}
-									</TableRow>
-								</TableHeader>
-								<TableBody>
-									{csvPreview.slice(1).map((row, i) => (
-										<TableRow key={i} className='bg-[#F2F3F4] h-[20px]'>
-											{row.map((cell, j) => (
-												<TableCell
-													key={j}
-													className={`
-														border-none align-middle text-center p-0 
-														${j === 0 ? 'rounded-l-[5px]' : ''} 
-														${j === row.length - 1 ? 'rounded-r-[5px]' : ''}
-													`}
-												>
-													{cell}
-												</TableCell>
+						) : (
+							<div className='bg-white w-[518px] h-auto rounded-[10px] px-[10px]'>
+								<div className='w-[498px] h-[26px]'>
+									<h2 className='text-black text-[18px] font-medium'>
+										{files?.[0]?.name ? `${files[0].name} — предпросмотр` : 'предпросмотр'}
+									</h2>
+								</div>
+								<Table className='w-[498px] text-center border-separate border-spacing-y-[5px] text-[10px]'>
+									<TableHeader className="sticky top-0 bg-white z-10">
+										<TableRow>
+											{csvPreview[0].map((col, i) => (
+												<TableHead key={i} className='border-none'>
+													{col}
+												</TableHead>
 											))}
 										</TableRow>
-									))}
-								</TableBody>
-							</Table>
-						</div>
+									</TableHeader>
+									<TableBody>
+										{csvPreview.slice(1).map((row, i) => (
+											<TableRow key={i} className='bg-[#F2F3F4] h-[20px]'>
+												{row.map((cell, j) => (
+													<TableCell
+														key={j}
+														className={`border-none align-middle text-center p-0 
+															${j === 0 ? 'rounded-l-[5px]' : ''} 
+															${j === row.length - 1 ? 'rounded-r-[5px]' : ''}`}
+													>
+														{cell}
+													</TableCell>
+												))}
+											</TableRow>
+										))}
+									</TableBody>
+								</Table>
+							</div>
+						)}
 
-						<DialogFooter className='flex justify-end'>
+						<DialogFooter className='flex justify-end gap-2'>
 							<Button
 								variant='outline'
 								onClick={() => {
 									setFiles(undefined);
 									setCsvPreview(null);
 								}}
-								className='h-[26px] w-[145px] bg-[#FF4F12] text-white text-[12px] border-none rounded-[5px] gap-0'
+								className='h-[26px] w-[145px] bg-[#FF4F12] text-white text-[12px] border-none rounded-[5px]'
+								disabled={isUploading}
 							>
 								<CloseLarge fill="#FFFFFF" className="w-[7px] h-[7px]" />
 								Отмена
 							</Button>
+
 							<Button
-								className='h-[26px] w-[145px] bg-[#7700FF] hover:bg-[#5e00cc] text-white text-[12px] border-none rounded-[5px] gap-0'
+								className='h-[26px] w-[145px] bg-[#7700FF] hover:bg-[#5e00cc] text-white text-[12px] border-none rounded-[5px]'
 								onClick={handleUpload}
+								disabled={isUploading}
 							>
-								<CheckLarge fill="#FFFFFF" className="w-[7px] h-[7px]" />
-								Загрузить
+								{isUploading ? (
+									<span className="animate-pulse">Загрузка...</span>
+								) : success ? (
+									<>
+										<CheckLarge fill="#FFFFFF" className="w-[7px] h-[7px]" />
+										Успешно
+									</>
+								) : (
+									<>
+										<CheckLarge fill="#FFFFFF" className="w-[7px] h-[7px]" />
+										Загрузить
+									</>
+								)}
 							</Button>
 						</DialogFooter>
 					</div>

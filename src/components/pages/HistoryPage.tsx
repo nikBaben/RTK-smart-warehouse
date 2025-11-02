@@ -77,6 +77,40 @@ function HistoryPage() {
 	const [zones, setZones] = useState<string[]>([])
 	const [categories, setCategories] = useState<string[]>([])
 
+	const [statistics, setStatistics] = useState<{
+		total_records: number
+		unique_products_count: number
+		discrepancy_count: number
+		} | null>(null)
+
+		useEffect(() => {
+		const fetchStatistics = async () => {
+			if (!selectedWarehouse?.id || !token) {
+			setStatistics(null)
+			return
+			}
+
+			try {
+			const res = await api.post(
+				`/inventory_history/get_statistic/${selectedWarehouse.id}`,
+				{},
+				{
+				headers: {
+					Authorization: `Bearer ${token}`,
+				},
+				}
+			)
+
+			setStatistics(res.data)
+			} catch (err) {
+			console.error("Ошибка загрузки статистики:", err)
+			setStatistics(null)
+			}
+		}
+
+	fetchStatistics()
+	}, [selectedWarehouse?.id, token])
+
 	useEffect(() => {
 		const fetchZonesAndCategories = async () => {
 			if (!selectedWarehouse?.id || !token) return
@@ -152,12 +186,16 @@ function HistoryPage() {
 		{ header: 'категория', accessor: 'category', sortable: true },
 		{ header: 'зона склада', accessor: 'current_zone', sortable: true },
 		{ header: 'название', accessor: 'name', sortable: true },
-		{
-			header: 'количество ожидаемое/фактическое',
-			accessor: 'stock',
-			sortable: true,
-		},
-		{ header: 'расхождение (+/-)', accessor: 'deviation', sortable: true },
+        {
+            header: 'ожидаемое / фактическое',
+            accessor: (row) =>
+            `${row.expected_count ?? 0} / ${row.stock ?? 0}`,
+            sortable: true,
+            sortKey: "expected_count",
+        },
+        {
+            header: 'расхождение (+/-)', accessor: (row) => row.difference ?? 0, sortable: true,
+        },
 		{
 			header: 'статус',
 			accessor: row => {
@@ -377,16 +415,16 @@ function HistoryPage() {
 									</h2>
 									<div className='h-[46px] bg-white rounded-[15px] flex items-center justify-between p-[10px]'>
 										<span className='text-[14px] font-light'>
-											всего проверок за период: 12375
+											всего проверок за период: {statistics?.total_records ?? '—'}
 										</span>
 										<span className='text-[14px] font-light'>
-											уникальных товаров: 56
+											уникальных товаров: {statistics?.unique_products_count ?? '—'}
 										</span>
 										<span className='text-[14px] font-light'>
-											выявлено расхождений: 21
+											выявлено расхождений: {statistics?.discrepancy_count ?? '—'}
 										</span>
 										<span className='text-[14px] font-light'>
-											среднее время инвентаризации: 10 мин
+											среднее время инвентаризации: в разработке
 										</span>
 									</div>
 								</div>
