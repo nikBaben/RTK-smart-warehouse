@@ -24,7 +24,7 @@ async def get_delivery(
 #Получить элементы доставки
 @router.get(
     "/{delivery_id}/items",
-    response_model=List[DeliveryItemDetailResponse]
+    response_model=List[DeliveryItemDetailResponse],
     summary="Получить элементы доставки"
 )
 async def get_delivery_items(
@@ -36,7 +36,7 @@ async def get_delivery_items(
 #Получить элемент доставки по ID
 @router.get(
     "/items/{item_id}",
-    response_model=DeliveryItemDetailResponse
+    response_model=DeliveryItemDetailResponse,
     summary="Получить элемент доставки по ID"
 )
 async def get_delivery_item(
