@@ -87,7 +87,7 @@ export function SoonDepletedList(props: Props) {
 								<span className='font-medium'>
 									запас будет исчерпан{' '}
 									<span>
-										{new Date(item.depletion_at).toLocaleDateString('ru-RU')}
+										{new Date(item.depletion_date).toLocaleDateString('ru-RU')}
 									</span>
 								</span>
 								<span className='font-light'>

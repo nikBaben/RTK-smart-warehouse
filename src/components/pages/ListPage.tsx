@@ -734,7 +734,7 @@ function ListPage() {
 																	</SelectContent>
 																</Select>
 															</div>
-															<div className='grid gap-3 bg-white p-[10px] rounded-[10px]'>
+															<div className='grid bg-white p-[10px] rounded-[10px]'>
 																<Label
 																	className='section-title'
 																	htmlFor='current_position'

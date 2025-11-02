@@ -191,7 +191,7 @@ function HistoryPage() {
 		{
 			header: 'расхождение (+/-)',
 			accessor: row => row.difference ?? 0,
-			sortable: true,
+			sortable: false,
 		},
 		{
 			header: 'статус',
@@ -333,7 +333,7 @@ function HistoryPage() {
 										<div className='h-[53px] w-[198px]'>
 											<span className='text-[14px] font-medium'> Статус </span>
 											<div className='h-[35px] pl-[5px] bg-[#F2F3F4] gap-[5px] rounded-[5px] flex-col items-center'>
-												<div className='flex gap-[5px] items-center'>
+												<div className='flex gap-[5px] items-center cursor-pointer'>
 													<div className='flex gap-[2px] items-center'>
 														<Checkbox
 															checked={selectedStatuses.length === 0}

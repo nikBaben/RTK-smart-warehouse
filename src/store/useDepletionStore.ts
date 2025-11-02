@@ -5,7 +5,7 @@ type DepletionItem = {
 	product_id: string
 	product_name: string
 	warehouse_id: string
-	depletion_at: string
+	depletion_date: string
 	reliability: number
 	stock: number
 	required_delivery: number

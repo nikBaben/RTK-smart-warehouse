@@ -78,7 +78,11 @@ function AuthPage() {
 			<main className='flex-1 flex flex-col items-center justify-center p-4 relative'>
 				<div className='flex flex-col gap-[20px]'>
 					<div className='w-[430px] h-[550px] bg-white rounded-[15px] overflow-hidden max-w-md p-8 flex flex-col items-center'>
-						<div className='w-full flex flex-col gap-[20px]'>
+						<form
+							className='w-full flex flex-col gap-[20px]'
+							onSubmit={e => handleLogin(e)}
+							autoComplete='on'
+						>
 							<h1 className='text-2xl font-bold text-center mb-2'>
 								Войти на склад
 							</h1>
@@ -120,8 +124,7 @@ function AuthPage() {
 							</div>
 
 							<Button
-								type='button'
-								onClick={handleLogin}
+								type='submit'
 								disabled={!email || !password || loading}
 								className={`w-[365px] h-[68px] rounded-[10px] text-[18px]
 							    leading-[24px] ${
@@ -153,7 +156,7 @@ function AuthPage() {
 									Забыли пароль?
 								</span>
 							</p>
-						</div>
+						</form>
 					</div>
 
 					<div className='w-full h-[123px] bg-white rounded-[15px] overflow-hidden max-w-md relative'>

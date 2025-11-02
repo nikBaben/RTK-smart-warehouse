@@ -238,9 +238,11 @@ export function DataTableHistory<T extends { id: string }>(
 													{isFirst ? (
 														<div className='flex items-center gap-2'>
 															<Checkbox
+                              
 																checked={isSelected}
 																onCheckedChange={() => toggleRow(rowId)}
-																className='h-[10px] w-[10px] border-[#5A606D] border-[0.5px] rounded-[2px]'
+																onClick={e => e.stopPropagation()}
+																className='h-[10px] w-[10px] border-[#5A606D] border-[0.5px] cursor-pointer rounded-[2px]'
 															/>
 															{value}
 														</div>
