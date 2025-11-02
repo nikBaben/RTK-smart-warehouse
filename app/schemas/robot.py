@@ -21,9 +21,10 @@ class RobotCreate(BaseModel):
 
 class RobotRead(RobotBase):
     id: str
-    warehouse_id: Optional[str]
     last_update: Optional[datetime] = None
     created_at: datetime
+    warehouse_id: Optional[str]
 
     class Config:
         from_attributes = True  
+

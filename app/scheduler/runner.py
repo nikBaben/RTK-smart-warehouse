@@ -1,6 +1,3 @@
-# app/scheduler/runner.py
-from __future__ import annotations
-
 import time
 import logging
 import asyncio
@@ -10,24 +7,23 @@ from sqlalchemy.orm import Session
 from app.scheduler.config import Config
 from app.scheduler.jobs import create_shipment_job
 from app.scheduler.jobs.materialize_scheduled_deliveries import run as deliveries_job
-from app.scheduler.jobs.predict_scheduler import run as predict_job  # добавляем новую задачу
+from app.scheduler.jobs.predict_scheduler import run as predict_job  
 
 log = logging.getLogger("scheduler.runner")
 
 
+#Тест
 def run_once(cfg: Config) -> None:
-    """Запуск единоразово (для тестов)."""
     engine = create_engine(cfg.database_url, pool_pre_ping=True, future=True)
     with Session(engine) as session:
         create_shipment_job(session, cfg)
 
 
+#Планирощик задач
 def loop(cfg: Config) -> None:
-    """Основной цикл планировщика."""
-    # интервалы для разных задач
-    shipments_interval = getattr(cfg, "interval_sec", 60)               # например, каждые 60 сек
-    deliveries_interval = getattr(cfg, "deliveries_interval_sec", 900)  # каждые 15 минут
-    predict_interval = getattr(cfg, "predict_check_interval", 3600)     # проверяем прогнозы раз в час
+    shipments_interval = getattr(cfg, "interval_sec")               # например, каждые 900 сек
+    deliveries_interval = getattr(cfg, "deliveries_interval_sec")   # каждые 1800 сек
+    predict_interval = getattr(cfg, "predict_check_interval")       # проверяем прогнозы раз в 2 час
 
     log.info(
         "Старт планировщика: shipments=%s сек, deliveries=%s сек, predict-check=%s сек",
@@ -36,10 +32,9 @@ def loop(cfg: Config) -> None:
 
     engine = create_engine(cfg.database_url, pool_pre_ping=True, future=True)
 
-    # расписание следующих запусков
     next_shipments = time.monotonic()
     next_deliveries = time.monotonic()
-    next_predict_check = time.monotonic()  # отдельный цикл проверки прогнозов
+    next_predict_check = time.monotonic()
 
     while True:
         now = time.monotonic()
@@ -57,7 +52,7 @@ def loop(cfg: Config) -> None:
                         log.info("Materialized %s scheduled deliveries.", created)
                     next_deliveries = now + deliveries_interval
 
-            # ML-прогнозы (выполняем асинхронно, т.к. использует async_session)
+            # ML-прогнозы 
             if now >= next_predict_check:
                 log.info("⏳ Проверка, кому пора обновить прогнозы...")
                 try:
@@ -72,7 +67,6 @@ def loop(cfg: Config) -> None:
         if cfg.run_once:
             break
 
-        # спим до ближайшей задачи
         sleep_for = min(next_shipments, next_deliveries, next_predict_check) - time.monotonic()
         if sleep_for > 0:
             time.sleep(min(sleep_for, 1.0))

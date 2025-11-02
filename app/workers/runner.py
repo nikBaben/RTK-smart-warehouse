@@ -9,6 +9,7 @@ import time
 import traceback
 from contextlib import suppress
 from typing import List
+import contextlib
 
 # ──────────────────────────────────────────────────────────────────────────────
 # КРИТИЧЕСКО: отключаем C-расширения SQLAlchemy ДО любых импортов sqlalchemy
@@ -54,15 +55,37 @@ from app.ws.inventory_critical_streamer import continuous_inventory_critical_str
 from app.ws.inventory_status import continuous_inventory_status_avg_streamer
 from app.ws.robot_status_count_streamer import continuous_robot_status_count_streamer
 from app.ws.robot_activity_streamer import continuous_robot_activity_history_streamer
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Конфиг
-# ──────────────────────────────────────────────────────────────────────────────
+from contextlib import asynccontextmanager
+from app.db.session import async_session
+from app.repositories.product_repo import ProductRepository
+from app.repositories.robot_history_repo import RobotHistoryRepository
+from app.repositories.inventory_history_repo import InventoryHistoryRepository
+from app.repositories.robot_repo import RobotRepository
+#from app.repositories.bundle import product_repo_provider,robot_history_repo_provider,inventory_history_repo_provider,robot_repo_provider
 REDIS_DSN = os.getenv("REDIS_DSN", "redis://myapp-redis:6379/0")
 WATCHER_INTERVAL = float(os.getenv("WATCHER_INTERVAL", "2"))
 
 _SHUTDOWN = False
 
+@asynccontextmanager
+async def product_repo_provider():
+    async with async_session() as session:
+        yield ProductRepository(session)
+
+@asynccontextmanager
+async def robot_history_repo_provider():
+    async with async_session() as session:
+        yield RobotHistoryRepository(session)
+
+@asynccontextmanager
+async def inventory_history_repo_provider():
+    async with async_session() as session:
+        yield InventoryHistoryRepository(session)
+
+@asynccontextmanager
+async def robot_repo_provider():
+    async with async_session() as session:
+        yield RobotRepository(session)
 
 def _install_signal_handlers(loop: asyncio.AbstractEventLoop) -> None:
     def _graceful(signame: str) -> None:
@@ -88,8 +111,7 @@ def _loop_exception_handler(loop: asyncio.AbstractEventLoop, context: dict) -> N
         sys.stderr.flush()
 
 
-async def _run_task_group_once() -> None:
-    # 1) EventBus
+async def _run_task_group_once():
     bus = EventBus(REDIS_DSN)
     await bus.connect()
     bus_module.bus = bus  # type: ignore[attr-defined]
@@ -99,13 +121,13 @@ async def _run_task_group_once() -> None:
     tasks: List[asyncio.Task] = []
     try:
         tasks.append(asyncio.create_task(run_robot_watcher_mproc()))
-        tasks.append(asyncio.create_task(continuous_product_snapshot_streamer(interval=10, use_ws_rooms=False), name="products_snapshot"))
-        tasks.append(asyncio.create_task(continuous_robot_avg_streamer(interval=60, use_ws_rooms=False), name="robot_avg"))
-        tasks.append(asyncio.create_task(continuous_inventory_scans_streamer(interval=60, hours=24, use_ws_rooms=False), name="inventory_scans"))
-        tasks.append(asyncio.create_task(continuous_inventory_critical_streamer(interval=60, use_ws_rooms=False), name="inventory_critical"))
-        tasks.append(asyncio.create_task(continuous_inventory_status_avg_streamer(interval=60, use_ws_rooms=False), name="inventory_status_avg"))
-        tasks.append(asyncio.create_task(continuous_robot_status_count_streamer(interval=60, use_ws_rooms=False), name="robot_status_count"))
-        tasks.append(asyncio.create_task(continuous_robot_activity_history_streamer(interval=600, use_ws_rooms=False), name="robot_activity_history"))
+        tasks.append(asyncio.create_task(continuous_product_snapshot_streamer(interval=60, repo_provider=product_repo_provider,use_ws_rooms=False), name="products_snapshot"))
+        tasks.append(asyncio.create_task(continuous_robot_avg_streamer(interval=60,repo_provider = robot_repo_provider, use_ws_rooms=False), name="robot_avg"))
+        tasks.append(asyncio.create_task(continuous_inventory_scans_streamer(interval=60,repo_provider = inventory_history_repo_provider, hours=24, use_ws_rooms=False), name="inventory_scans"))
+        tasks.append(asyncio.create_task(continuous_inventory_critical_streamer(interval=60,repo_provider = inventory_history_repo_provider, use_ws_rooms=False), name="inventory_critical"))
+        tasks.append(asyncio.create_task(continuous_inventory_status_avg_streamer(interval=60,repo_provider=product_repo_provider, use_ws_rooms=False), name="inventory_status_avg"))
+        tasks.append(asyncio.create_task(continuous_robot_status_count_streamer(interval=60,repo_provider= robot_repo_provider,use_ws_rooms=False), name="robot_status_count"))
+        tasks.append(asyncio.create_task(continuous_robot_activity_history_streamer(interval=600,repo_provider=robot_history_repo_provider,use_ws_rooms=False), name="robot_activity_history"))
 
         print("🚀 worker: task group started", flush=True)
 

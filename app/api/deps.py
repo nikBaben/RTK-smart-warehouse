@@ -1,5 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from contextlib import asynccontextmanager
+from typing import AsyncIterator
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi import Depends, HTTPException, status
 import logging
@@ -15,6 +17,7 @@ from app.repositories.inventory_history_repo import InventoryHistoryRepository
 from app.repositories.alarm_repo import AlarmRepository
 from app.repositories.operations_repo import OperationsRepository
 from app.repositories.reports_repo import ReportsRepository
+from app.repositories.robot_history_repo import RobotHistoryRepository
 
 # Services
 from app.service.robot_service import RobotService
@@ -40,6 +43,9 @@ security = HTTPBearer()
 #Repositories
 def get_robot_repo(db: AsyncSession = Depends(get_session)) -> RobotRepository:
     return RobotRepository(db)
+
+def get_robot_history_repo(db: AsyncSession = Depends(get_session)) -> RobotHistoryRepository: 
+    return RobotHistoryRepository(db)
 
 def get_product_repo(db: AsyncSession = Depends(get_session)) -> ProductRepository:
     return ProductRepository(db)
@@ -172,3 +178,26 @@ def get_predict_service(
         product_repo=product_repo,
         warehouse_repo=warehouse_repo,
     )
+
+#Даёт ProductRepository с живой AsyncSession и гарантированно её закрывает.
+#Работает вне Depends/эндпоинтов.
+@asynccontextmanager
+async def product_repo_provider() -> AsyncIterator[ProductRepository]:
+    async with async_session() as session:  
+        yield ProductRepository(session)
+
+@asynccontextmanager
+async def robot_history_repo_provider() -> AsyncIterator[RobotHistoryRepository]:
+    async with async_session() as session:  
+        yield RobotHistoryRepository(session)
+
+@asynccontextmanager
+async def inventory_history_repo_provider() -> AsyncIterator[InventoryHistoryRepository]:
+    async with async_session() as session:  
+        yield InventoryHistoryRepository(session)
+
+@asynccontextmanager
+async def robot_repo_provider() -> AsyncIterator[RobotRepository]:
+    async with async_session() as session:  
+        yield RobotRepository(session)
+

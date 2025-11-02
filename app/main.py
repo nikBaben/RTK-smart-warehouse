@@ -12,7 +12,6 @@ from app.api.v1 import api_router
 from app.api.routers import ws as ws_router
 from threading import Thread
 import asyncio
-from app.robot_emulator.emulator import run_robot_watcher 
 from app.ws.ws_manager import WSManager 
 from app.ws.products_events import continuous_product_snapshot_streamer
 from app.ws.battery_events import continuous_robot_avg_streamer

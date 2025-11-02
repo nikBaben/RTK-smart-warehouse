@@ -92,8 +92,12 @@ class RobotService:
         
     async def get_robots_by_warehouse_id(self, warehouse_id: str):
         robots = await self.repo.get_all_by_warehouse_id(warehouse_id)
-        if not robots:
-            raise ValueError(f"Роботы на скалде id '{warehouse_id}' не найдены.")
         return robots
+    
+    async def get_robot(self, robot_id:str): 
+        robot = await self.repo.get(robot_id)
+        if not robot:
+            raise ValueError(f"Роботы на скалде id '{robot_id}' не найдены.")
+        return robot
     
     

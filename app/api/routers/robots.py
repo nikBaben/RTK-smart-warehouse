@@ -30,11 +30,22 @@ async def create_robot(
         "/{robot_id}",
         summary="Удалить робота",
 )
-async def delete_warehouse(
+async def delete_robot(
     robot_id: str,
     service: RobotService = Depends(get_robot_service),
 ):
     return await service.delete_robot(robot_id)
+
+@router.get(
+        "/{robot_id}",
+        response_model=RobotRead,
+        summary="Робот по id",
+)
+async def get_robot(
+    robot_id: str,
+    service: RobotService = Depends(get_robot_service),
+):
+    return await service.get_robot(robot_id)
 
 @router.get(
     "/get_robots_by_warehouse_id/{warehouse_id}",

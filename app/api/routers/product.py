@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status,Query
 from app.schemas.product import ProductCreate, ProductRead,ProductEdit
 from app.service.product_service import ProductService
 from app.api.deps import get_product_service  

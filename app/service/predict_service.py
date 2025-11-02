@@ -7,6 +7,7 @@ from app.ml.predictor import Predictor
 from app.repositories.predict_repo import PredictRepository
 from app.repositories.product_repo import ProductRepository
 from app.repositories.warehouse_repo import WarehouseRepository
+from app.schemas.predict import PredictResponse
 from app.ml.data_access import fetch_all_product_ids
 
 log = logging.getLogger("service.predict")
@@ -19,23 +20,29 @@ class PredictService:
         product_repo: Optional[ProductRepository] = None,
         warehouse_repo: Optional[WarehouseRepository] = None,
     ):
-        """
-        predict_repo  — обязателен (работа с таблицей predict_at)
-        product_repo  — опционально (для получения product_name). Если не передан, в product_name пишем product_id.
-        warehouse_repo — опционально (нужен для пересчёта по всем складам).
-        """
         self.repo = predict_repo
         self.product_repo = product_repo
         self.warehouse_repo = warehouse_repo
 
     # === Для API: топ-5 ближайших к исчерпанию ===
-    async def get_top5_depletion(self, warehouse_id: str) -> List[Dict]:
-        """
-        Возвращает список из максимум 5 записей:
-        [{product_id, product_name, warehouse_id, p50, p10, p90, p_deplete_within}, ...]
-        """
+    async def get_top5_depletion(self, warehouse_id: str) -> List[PredictResponse]:
         rows = await self.repo.get_top5_soon_depleted(warehouse_id)
-        return rows
+        items = []
+        for row in rows:
+            pid = row["product_id"]
+            stock = await self.product_repo.get_stock(pid)
+            required = await self.product_repo.required_delivery(pid)
+            items.append(PredictResponse(
+                product_id=row["product_id"],
+                product_name=row["product_name"],
+                warehouse_id=row["warehouse_id"],
+                depletion_date=row["p50"],
+                reliability=row["p_deplete_within"],
+                stock=stock,
+                required_delivery=required,
+            ))
+
+        return items
 
     # === Пересчёт прогнозов для всех складов ===
     async def rebuild_predictions_for_all_warehouses(self, horizon_days: int = 60):
@@ -48,10 +55,6 @@ class PredictService:
 
     # === Пересчёт прогнозов для одного склада ===
     async def rebuild_predictions_for_warehouse(self, warehouse_id: str, horizon_days: int = 60):
-        """
-        Формирует и сохраняет прогнозы истощения по всем товарам склада.
-        Сохраняет product_name (если доступен через product_repo).
-        """
         log.info(f"🔮 Пересчёт прогнозов для склада {warehouse_id}...")
         session = self.repo.session
 

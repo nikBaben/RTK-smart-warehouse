@@ -7,11 +7,10 @@ from app.service.predict_service import PredictService
 
 log = logging.getLogger("scheduler.predict_scheduler")
 
+
+#Проверяет все склады: если прогноз старше 7 дней (или отсутствует)
+#запускает перерасчёт.
 async def run(cfg=None):
-    """
-    Проверяет все склады: если прогноз старше 7 дней (или отсутствует),
-    запускает перерасчёт.
-    """
     horizon_days = getattr(cfg, "horizon_days", 60)
     refresh_days = getattr(cfg, "predict_refresh_days", 7)
     refresh_interval = timedelta(days=refresh_days)

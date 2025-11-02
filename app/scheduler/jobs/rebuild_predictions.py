@@ -8,13 +8,11 @@ from app.service.predict_service import PredictService
 log = logging.getLogger("scheduler.rebuild_predictions")
 
 
+#Переобучение/перерасчёт прогнозов истощения по всем товарам склада.
+#Вызывается каждые N часов планировщиком.
 async def run(cfg=None):
-    """
-    Переобучение/перерасчёт прогнозов истощения по всем товарам склада.
-    Вызывается каждые N часов планировщиком.
-    """
-    warehouse_id = getattr(cfg, "warehouse_id", "WH_001")  # можно вынести в конфиг
-    horizon_days = getattr(cfg, "horizon_days", 60)
+    warehouse_id = getattr(cfg, "warehouse_id","WH_001") 
+    horizon_days = getattr(cfg, "horizon_days")
 
     log.info(f"🔁 Старт обновления прогнозов по складу {warehouse_id}")
 

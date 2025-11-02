@@ -104,6 +104,4 @@ class ProductService:
     
     async def get_products_by_warehouse_id(self, warehouse_id: str):
         prodcts = await self.repo.get_all_by_warehouse_id(warehouse_id)
-        #if not prodcts:
-        #    raise ValueError(f"Товары на скалде id '{warehouse_id}' не найдены.")
         return prodcts

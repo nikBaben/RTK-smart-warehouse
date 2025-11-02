@@ -1,11 +1,11 @@
-# app/scheduler/jobs/materialize_scheduled_deliveries.py
 from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.models.delivery import Delivery, ScheduledDelivery
 from app.models.delivery_items import DeliveryItems
 
-HORIZON_HOURS = 24  # как далеко вперёд разворачивать планы
+HORIZON_HOURS = 24 
+
 
 def run(session: Session, cfg) -> int:
     now = datetime.utcnow()
@@ -25,7 +25,6 @@ def run(session: Session, cfg) -> int:
         deliv_id = f"{sd.id}_D"
         item_id = f"{sd.id}_DI"
 
-        # идемпотентность: пропустим, если уже есть
         if session.get(Delivery, deliv_id) is None:
             d = Delivery(
                 id=deliv_id,
@@ -48,7 +47,6 @@ def run(session: Session, cfg) -> int:
             session.add(di)
             created += 1
 
-        # пометим план как материализованный (можно не помечать — на твой вкус)
         sd.status = "materialized"
 
     session.commit()

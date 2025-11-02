@@ -8,14 +8,15 @@ from app.api.deps import get_reports_service
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
-@router.post("/supplies/monthly-excel")
+#Endpoint генерации Excel отчета по поставкам и отгрузкам для конкретного склада.
+@router.post(
+    "/supplies/monthly-excel",
+    summary="Сгенерировать отчет",
+)
 async def generate_monthly_excel_report(
     request: MonthlyReportRequest,
     reports_service: ReportsService = Depends(get_reports_service)
 ):
-    """
-    Генерация Excel отчета по поставкам и отгрузкам для конкретного склада
-    """
     try:
         excel_data = await reports_service.generate_monthly_report(
             year=request.year,
@@ -35,7 +36,10 @@ async def generate_monthly_excel_report(
         raise HTTPException(status_code=500, detail=f"Ошибка генерации отчета: {str(e)}")
 
 
-@router.get("/supplies/monthly-excel/{warehouse_id}/{year}")
+@router.get(
+    "/supplies/monthly-excel/{warehouse_id}/{year}",
+    
+)
 async def generate_monthly_excel_report_simple(
     warehouse_id: str,
     year: int,

@@ -1,6 +1,6 @@
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, cast, Date, or_, distinct, func
+from sqlalchemy import select, cast, Date, or_, distinct, func,insert
 from sqlalchemy.exc import IntegrityError
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timedelta
@@ -409,3 +409,126 @@ class InventoryHistoryRepository:
         result = await self.session.execute(query)
         categories = result.scalars().all()
         return list(categories)  # Все повторы уже убраны DISTINCT
+
+    async def count_critical_unique_articles(self, warehouse_id: str) -> int:
+        stmt = (
+            select(func.count(func.distinct(InventoryHistory.article)))
+            .where(InventoryHistory.warehouse_id == warehouse_id)
+            .where(func.lower(InventoryHistory.status) == "critical")
+        )
+        val = await self.session.scalar(stmt)
+        return int(val or 0)
+
+    async def get_distinct_warehouse_ids(self) -> List[str]:
+        rows = await self.session.execute(select(distinct(InventoryHistory.warehouse_id)))
+        return [wid for (wid,) in rows.all() if wid]
+
+    async def get_warehouse_id_by_history_id(self, history_id: str) -> Optional[str]:
+        return await self.session.scalar(
+            select(InventoryHistory.warehouse_id).where(InventoryHistory.id == history_id)
+        )
+    
+    async def count_scans_since(self, warehouse_id: str, since_utc: datetime) -> int:
+        stmt = (
+            select(func.count(InventoryHistory.id))
+            .where(InventoryHistory.warehouse_id == warehouse_id)
+            .where(InventoryHistory.created_at >= since_utc)
+            .where(InventoryHistory.product_id.is_not(None))
+        )
+        val = await self.session.scalar(stmt)
+        return int(val or 0)
+
+    async def get_last_scans(self, warehouse_id: str, limit: int) -> List[InventoryHistory]:
+        try:
+            res = await self.session.execute(
+                select(InventoryHistory)
+                .where(InventoryHistory.warehouse_id == warehouse_id)
+                .order_by(InventoryHistory.created_at.desc())
+                .limit(limit)
+            )
+        except Exception:
+            # на случай, если created_at отсутствует или неиндексирован
+            res = await self.session.execute(
+                select(InventoryHistory)
+                .where(InventoryHistory.warehouse_id == warehouse_id)
+                .order_by(InventoryHistory.id.desc())
+                .limit(limit)
+            )
+        return list(res.scalars().all())
+    
+        # imports
+    from typing import Dict, List, Optional
+    from datetime import datetime
+    from sqlalchemy import select, func, insert
+    from app.models.inventory_history import InventoryHistory
+
+    # 1) Последние сканы по складу (newest-first)
+    async def get_last_scans(self, warehouse_id: str, limit: int) -> List[Dict]:
+        res = await self.session.execute(
+            select(InventoryHistory)
+            .where(InventoryHistory.warehouse_id == warehouse_id)
+            .order_by(InventoryHistory.created_at.desc())
+            .limit(limit)
+        )
+        out: List[Dict] = []
+        for ih in res.scalars().all():
+            out.append({
+                "id": ih.id,
+                "product_id": ih.product_id,
+                "robot_id": ih.robot_id,
+                "warehouse_id": ih.warehouse_id,
+                "current_zone": ih.current_zone,
+                "current_row": ih.current_row,
+                "current_shelf": ih.current_shelf,
+                "name": ih.name,
+                "category": ih.category,
+                "article": ih.article,
+                "stock": ih.stock,
+                "min_stock": ih.min_stock,
+                "optimal_stock": ih.optimal_stock,
+                "status": ih.status,
+                "created_at": ih.created_at,
+            })
+        return out
+
+    # 2) Bulk insert строк истории
+    async def insert_rows(self, rows: List[Dict]) -> None:
+        if not rows:
+            return
+        await self.session.execute(insert(InventoryHistory), rows)
+        await self.session.flush()
+
+    # 3) Кол-во записей за период (сколько отсканировано за последние N часов)
+    async def count_scans_since(self, warehouse_id: str, cutoff: datetime, *, require_product_id: bool = True) -> int:
+        stmt = (
+            select(func.count(InventoryHistory.id))
+            .where(InventoryHistory.warehouse_id == warehouse_id)
+            .where(InventoryHistory.created_at >= cutoff)
+        )
+        if require_product_id:
+            stmt = stmt.where(InventoryHistory.product_id.is_not(None))
+        val = await self.session.scalar(stmt)
+        return int(val or 0)
+
+    # 4) Список складов, для которых есть история
+    async def list_distinct_warehouses(self) -> List[str]:
+        rows = await self.session.execute(
+            select(func.distinct(InventoryHistory.warehouse_id))
+        )
+        return [wid for (wid,) in rows.all() if wid]
+
+    # 5) Найти склад по id записи истории
+    async def get_warehouse_id_by_history_id(self, history_id: str) -> Optional[str]:
+        wid = await self.session.scalar(
+            select(InventoryHistory.warehouse_id).where(InventoryHistory.id == history_id)
+        )
+        return wid
+
+    # 6) Количество уникальных артикулов в критическом статусе
+    async def count_distinct_critical_articles(self, warehouse_id: str) -> int:
+        val = await self.session.scalar(
+            select(func.count(func.distinct(InventoryHistory.article)))
+            .where(InventoryHistory.warehouse_id == warehouse_id)
+            .where(func.lower(InventoryHistory.status) == "critical")
+        )
+        return int(val or 0)

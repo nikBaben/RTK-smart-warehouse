@@ -1,11 +1,11 @@
-from typing import Optional
+from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload,noload
 from sqlalchemy.exc import IntegrityError
 
 from app.models.warehouse import Warehouse
-
+from app.models.robot import Robot
 
 class WarehouseRepository:
     def __init__(self, session: AsyncSession):
@@ -123,3 +123,12 @@ class WarehouseRepository:
     async def list_ids(self) -> list[str]:
         stmt = select(Warehouse.id)
         return (await self.session.execute(stmt)).scalars().all()
+    
+    #1) Склады, где есть хотя бы один робот (для шардера/раннера)
+    async def ids_having_robots(self) -> List[str]:
+        rows = await self.session.execute(
+            select(Warehouse.id)
+            .join(Robot, Robot.warehouse_id == Warehouse.id)
+            .group_by(Warehouse.id)
+        )
+        return [wid for (wid,) in rows.all() if wid]

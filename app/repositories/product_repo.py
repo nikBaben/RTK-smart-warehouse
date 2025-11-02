@@ -1,7 +1,8 @@
-from typing import Optional, List
+from typing import Optional, List,Dict
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func,update
+from sqlalchemy.orm import load_only, noload
+from sqlalchemy import select, func,update,distinct,case,tuple_
 from sqlalchemy.exc import IntegrityError
 
 from app.models.product import Product
@@ -60,11 +61,25 @@ class ProductRepository:
         await self.session.refresh(product)
         return product
 
-    async def get_all_by_warehouse_id(self, warehosue_id: str):
-        result = await self.session.execute(
-            select(Product).where(Product.warehouse_id == warehosue_id)
+    async def get_all_by_warehouse_id(self, warehouse_id: str):
+        stmt = (
+            select(Product)
+            .where(Product.warehouse_id == warehouse_id)
+            .options(
+                # грузим только нужные поля — быстрее
+                load_only(
+                    Product.id, Product.name, Product.category, Product.article,
+                    Product.stock, Product.min_stock, Product.optimal_stock,
+                    Product.current_zone, Product.current_row, Product.current_shelf,
+                    Product.status, Product.warehouse_id, Product.last_scanned_at,
+                ),
+                # не тащим отношения
+                noload(Product.warehouse),
+                noload(Product.history),
+            )
         )
-        return list(result.scalars().all())
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all())
 
 
     async def get(self, id: str) -> Optional[Product]:
@@ -190,6 +205,26 @@ class ProductRepository:
         )
         row = res.first()
         return row[0] if row else None
+    
+    async def required_delivery(self, product_id: str) -> Optional[str]:
+        result = await self.session.execute(
+        select(Product.stock, Product.optimal_stock)
+        .where(Product.id == product_id)
+        )
+        row = result.one_or_none()
+        if not row:
+            return None
+
+        stock, optimal_stock = row
+        required = max(optimal_stock - stock, 0)
+        return required
+    
+    async def get_stock(self, product_id: str) -> Optional[int]:
+        result = await self.session.execute(
+            select(Product.stock).where(Product.id == product_id)
+        )
+        row = result.one_or_none()
+        return row[0] if row else None
         
     async def bump_products_count(self, warehouse_id: str, delta: int) -> None:
         if not warehouse_id:
@@ -200,3 +235,206 @@ class ProductRepository:
             .values(products_count=func.greatest(Warehouse.products_count + delta, 0))
         )
         await self.session.execute(stmt)
+
+    async def get_distinct_warehouse_ids(self) -> List[str]:
+        rows = await self.session.execute(select(distinct(Product.warehouse_id)))
+        return [wid for (wid,) in rows.all() if wid]
+
+    async def recompute_statuses_for_warehouse(self, warehouse_id: str) -> int:
+        min_thr = func.coalesce(Product.min_stock, -1)
+        opt_thr = func.coalesce(Product.optimal_stock, -1)
+
+        status_case = case(
+            (Product.stock < min_thr, "critical"),
+            (Product.stock < opt_thr, "low"),
+            else_="ok",
+        )
+
+        stmt = (
+            update(Product)
+            .where(Product.warehouse_id == warehouse_id)
+            .values(status=status_case)
+            .execution_options(synchronize_session=False)
+        )
+
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return int(result.rowcount or 0)
+
+    async def get_avg_stock_by_status(self, warehouse_id: str) -> Dict[str, float]:
+        stmt = (
+            select(
+                func.lower(Product.status).label("status"),
+                func.avg(Product.stock).label("avg_stock"),
+            )
+            .where(Product.warehouse_id == warehouse_id)
+            .where(Product.status.is_not(None))
+            .where(func.length(func.trim(Product.status)) > 0)
+            .where(Product.stock.is_not(None))
+            .group_by(func.lower(Product.status))
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return {status: round(float(avg or 0.0), 2) for status, avg in rows}
+
+    async def get_distinct_warehouse_ids(self) -> List[str]:
+        rows = await self.session.execute(select(distinct(Product.warehouse_id)))
+        return [wid for (wid,) in rows.all() if wid]
+    
+        # imports
+    from typing import Iterable, List, Dict, Optional, Tuple
+    from datetime import datetime
+    from sqlalchemy import select, func, update, case, text  # case важно!
+    from sqlalchemy.orm import load_only, noload
+    from app.models.product import Product
+
+    # 1) Список уникальных складов по товарам (для стримера product.snapshot worker-режим)
+    async def get_distinct_warehouse_ids(self) -> List[str]:
+        rows = await self.session.execute(
+            select(func.distinct(Product.warehouse_id))
+        )
+        return [wid for (wid,) in rows.all() if wid]
+
+    # 2) Пересчёт статусов по складу (ok/low/critical) — одной SQL
+    async def recompute_statuses_for_warehouse(self, warehouse_id: str) -> int:
+        stmt = (
+            update(Product)
+            .where(Product.warehouse_id == warehouse_id)
+            .values(
+                status=case(
+                    (Product.stock < Product.min_stock, "critical"),
+                    (Product.stock < Product.optimal_stock, "low"),
+                    else_="ok",
+                )
+            )
+            .execution_options(synchronize_session=False)
+        )
+        res = await self.session.execute(stmt)
+        # Не коммитим здесь — это делает наружный провайдер/юнит работы
+        return int(getattr(res, "rowcount", 0) or 0)
+
+    # 3) Средние stock по статусам в рамках склада (для inventory.status_avg -> теперь Product)
+    async def avg_stock_by_status(self, warehouse_id: str) -> Dict[str, float]:
+        rows = await self.session.execute(
+            select(func.lower(Product.status), func.avg(Product.stock))
+            .where(Product.warehouse_id == warehouse_id)
+            .where(Product.status.is_not(None))
+            .group_by(func.lower(Product.status))
+        )
+        return {str(status): round(float(avg or 0.0), 2) for status, avg in rows.all()}
+
+    # (опционально) Узкая выборка товаров по складу (минимум полей)
+    async def get_all_by_warehouse_id_light(self, warehouse_id: str) -> List[Product]:
+        res = await self.session.execute(
+            select(Product)
+            .options(
+                load_only(
+                    Product.id, Product.name, Product.category, Product.article,
+                    Product.stock, Product.min_stock, Product.optimal_stock,
+                    Product.current_zone, Product.current_row, Product.current_shelf,
+                    Product.status, Product.warehouse_id, Product.last_scanned_at,
+                ),
+                noload(Product.warehouse),
+                noload(Product.history),
+            )
+            .where(Product.warehouse_id == warehouse_id)
+        )
+        return list(res.scalars().all())
+
+    # 4) Массовая пометка времени последнего скана (для эмиттера сканов)
+    async def mark_last_scanned(self, product_ids: Iterable[str], when: datetime) -> None:
+        ids = list(set(product_ids))
+        if not ids:
+            return
+        await self.session.execute(
+            update(Product).where(Product.id.in_(ids)).values(last_scanned_at=when)
+        )
+        await self.session.flush()
+
+    # 5) Быстрый seed «давности» по клеткам для склада
+    async def min_scan_seed_rows(self, warehouse_id: str) -> List[Tuple[int, str, datetime]]:
+        rows = await self.session.execute(
+            select(
+                Product.current_row,
+                func.upper(func.trim(Product.current_shelf)),
+                func.min(func.coalesce(Product.last_scanned_at, func.to_timestamp(0))).label("min_scan"),
+            )
+            .where(
+                Product.warehouse_id == warehouse_id,
+                func.upper(func.trim(Product.current_shelf)) != "0",
+            )
+            .group_by(Product.current_row, func.upper(func.trim(Product.current_shelf)))
+        )
+        return [(int(r), str(s), ms) for r, s, ms in rows.all()]
+
+    # 6) Фильтр «в каких парах (row, shelf) есть eligible товары»
+    async def eligible_cells_by_pairs(
+        self,
+        warehouse_id: str,
+        row_shelf_pairs: List[Tuple[int, str]],
+        cutoff: datetime,
+    ) -> List[Tuple[int, str]]:
+        if not row_shelf_pairs:
+            return []
+        rows = await self.session.execute(
+            select(Product.current_row, func.upper(func.trim(Product.current_shelf)))
+            .where(
+                Product.warehouse_id == warehouse_id,
+                tuple_(Product.current_row, func.upper(func.trim(Product.current_shelf))).in_(row_shelf_pairs),
+                (Product.last_scanned_at.is_(None)) | (Product.last_scanned_at < cutoff),
+            )
+            .distinct()
+        )
+        return [(int(r), str(s)) for r, s in rows.all()]
+
+    # 7) Полный fallback «самые старые клетки»
+    from sqlalchemy import tuple_  # если ещё не импортировал
+
+    async def eligible_cells_fallback(
+        self,
+        warehouse_id: str,
+        cutoff: datetime,
+    ) -> List[Tuple[int, str, datetime]]:
+        rows = await self.session.execute(
+            select(
+                Product.current_row,
+                func.upper(func.trim(Product.current_shelf)).label("shelf"),
+                func.min(func.coalesce(Product.last_scanned_at, func.to_timestamp(0))).label("min_scan"),
+            )
+            .where(
+                Product.warehouse_id == warehouse_id,
+                func.upper(func.trim(Product.current_shelf)) != "0",
+                (Product.last_scanned_at.is_(None)) | (Product.last_scanned_at < cutoff),
+            )
+            .group_by(Product.current_row, func.upper(func.trim(Product.current_shelf)))
+            .order_by(func.min(func.coalesce(Product.last_scanned_at, func.to_timestamp(0))).asc())
+        )
+        return [(int(r), str(s), ms) for r, s, ms in rows.all()]
+
+    # 8) Товары в ячейке, пригодные к скану (узкая загрузка)
+    async def eligible_products_in_cell(
+        self,
+        warehouse_id: str,
+        shelf_num: int,
+        row_num: int,
+        cutoff: datetime,
+    ) -> List[Product]:
+        shelf_str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[max(0, min(25, shelf_num - 1))] if shelf_num > 0 else "0"
+        res = await self.session.execute(
+            select(Product)
+            .options(
+                load_only(
+                    Product.id, Product.name, Product.category, Product.article,
+                    Product.stock, Product.min_stock, Product.optimal_stock,
+                    Product.current_zone, Product.current_row, Product.current_shelf,
+                ),
+                noload(Product.warehouse),
+                noload(Product.history),
+            )
+            .where(
+                Product.warehouse_id == warehouse_id,
+                Product.current_row == row_num,
+                func.upper(func.trim(Product.current_shelf)) == shelf_str,
+                (Product.last_scanned_at.is_(None)) | (Product.last_scanned_at < cutoff),
+            )
+        )
+        return list(res.scalars().all())

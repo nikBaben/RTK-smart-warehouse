@@ -1,7 +1,9 @@
-# app/repositories/predict_repo.py
 from typing import List, Tuple, Optional
 from sqlalchemy import text
+from sqlalchemy import select, func,update
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.predict import PredictAt
+from app.models.product import Product
 
 
 class PredictRepository:
@@ -9,82 +11,53 @@ class PredictRepository:
         self.session = session
 
     async def get_last_prediction_time(self, warehouse_id: str):
-        """Возвращает время последнего прогноза для склада."""
-        result = await self.session.execute(
-            text("""
-            SELECT MAX(predicted_at) AS last_time
-            FROM predict_at
-            WHERE warehouse_id = :wid
-            """),
-            {"wid": warehouse_id},
+        result = await self.session.scalar(
+            select(func.max(PredictAt.predicted_at))
+            .where(PredictAt.warehouse_id == warehouse_id)
         )
-        row = result.mappings().first()
-        return row["last_time"] if row and row["last_time"] else None
+
+        return result 
 
     async def get_top5_soon_depleted(self, warehouse_id: str):
-        """Возвращает 5 ближайших по истощению товаров (с именем и доверительными полями)."""
-        result = await self.session.execute(
-            text("""
-            SELECT
-                product_id,
-                product_name,
-                warehouse_id,
-                depletion_at        AS p50,
-                depletion_at_p10    AS p10,
-                depletion_at_p90    AS p90,
-                p_deplete_within
-            FROM predict_at
-            WHERE warehouse_id = :wid
-              AND depletion_at IS NOT NULL
-            ORDER BY depletion_at ASC
-            LIMIT 5
-            """),
-            {"wid": warehouse_id},
+        stmt = (
+        select(
+            PredictAt.product_id,
+            Product.name.label("product_name"),
+            PredictAt.warehouse_id,
+            PredictAt.depletion_at.label("p50"),
+            PredictAt.depletion_at_p10.label("p10"),
+            PredictAt.depletion_at_p90.label("p90"),
+            PredictAt.p_deplete_within,
         )
-        return [dict(r) for r in result.mappings().all()]
+        .join(Product, Product.id == PredictAt.product_id)  # ← вот тут соединение
+        .where(
+            PredictAt.warehouse_id == warehouse_id,
+            PredictAt.depletion_at.is_not(None),
+        )
+        .order_by(PredictAt.depletion_at.asc())
+        .limit(5)
+        )
+
+        result = await self.session.execute(stmt)
+        return [dict(row._mapping) for row in result.all()]
 
     async def purge_old_predictions(self, days: int = 1) -> int:
-        """Удаляет записи старше N дней. Возвращает число удалённых строк."""
-        result = await self.session.execute(
-            text("""
-            DELETE FROM predict_at
-            WHERE predicted_at < NOW() - (:days || ' day')::interval
-            """),
-            {"days": days},
+        result = (
+        delete(PredictAt)
+        .where(PredictAt.predicted_at < func.now() - text(f"interval '{days} day'"))
         )
+
+        result = await self.session.execute(stmt)
         await self.session.commit()
-        return getattr(result, "rowcount", 0) or 0
+
+        return result.rowcount or 0
 
     async def save_predictions(self, results: List[Tuple]):
-        """
-        Сохраняет результаты прогнозов без UPSERT (без UNIQUE-ограничений).
+       if not results:
+        return
 
-        Поддерживаемые форматы:
-          - (product_id, warehouse_id, product_name, p50)
-          - (product_id, warehouse_id, product_name, p50, p10, p90, p_within)
-
-        Алгоритм:
-          1) DELETE всех старых записей для пары (product_id, warehouse_id)
-          2) INSERT новой записи (с p10/p90/p_within, если есть)
-        """
-        if not results:
-            return
-
-        delete_sql = text("""
-            DELETE FROM predict_at
-            WHERE product_id = :pid AND warehouse_id = :wid
-        """)
-
-        insert_sql = text("""
-            INSERT INTO predict_at
-                (product_id, warehouse_id, product_name,
-                 depletion_at, depletion_at_p10, depletion_at_p90,
-                 p_deplete_within, predicted_at)
-            VALUES
-                (:pid, :wid, :pname,
-                 :p50, :p10, :p90,
-                 :pwithin, NOW())
-        """)
+        rows_to_insert = []
+        pairs = set()
 
         for row in results:
             if len(row) == 4:
@@ -93,21 +66,30 @@ class PredictRepository:
             elif len(row) == 7:
                 pid, wid, pname, p50, p10, p90, pwithin = row
             else:
-                # неизвестный формат — пропускаем
                 continue
 
-            # 1) зачистить старые
-            await self.session.execute(delete_sql, {"pid": pid, "wid": wid})
-
-            # 2) вставить новую
-            await self.session.execute(insert_sql, {
-                "pid": pid,
-                "wid": wid,
-                "pname": pname,
-                "p50": p50,
-                "p10": p10,
-                "p90": p90,
-                "pwithin": pwithin,
+            pairs.add((pid, wid))
+            rows_to_insert.append({
+                "product_id": pid,
+                "warehouse_id": wid,
+                "product_name": pname,
+                "depletion_at": p50,
+                "depletion_at_p10": p10,
+                "depletion_at_p90": p90,
+                "p_deplete_within": pwithin,
+                "predicted_at": func.now(),
             })
+
+        if not rows_to_insert:
+            return
+
+        pairs_list = list(pairs)
+        del_stmt = delete(PredictAt).where(
+            tuple_(PredictAt.product_id, PredictAt.warehouse_id).in_(pairs_list)
+        )
+        await self.session.execute(del_stmt)
+
+        ins_stmt = insert(PredictAt)
+        await self.session.execute(ins_stmt, rows_to_insert)
 
         await self.session.commit()

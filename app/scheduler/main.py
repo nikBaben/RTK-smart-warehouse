@@ -1,6 +1,3 @@
-# app/scheduler/main.py
-from __future__ import annotations
-
 import logging
 from app.scheduler.config import load_config
 from app.scheduler.runner import loop, run_once
