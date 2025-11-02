@@ -35,8 +35,7 @@ class InventoryHistoryRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    # -------------------- Read helpers --------------------
-
+    #Read helpers
     async def get(self, id: str) -> Optional[InventoryHistory]:
         return await self.session.scalar(
             select(InventoryHistory).where(InventoryHistory.id == id)
@@ -57,9 +56,6 @@ class InventoryHistoryRepository:
         page: int,
         page_size: int,
     ) -> Tuple[List[Tuple[InventoryHistory, Optional[int], int]], int]:
-        """Возвращает кортеж (строки, общее_количество).
-        Строки: (InventoryHistory, ScheduledDelivery.quantity, discrepancy)
-        """
         discrepancy = InventoryHistory.stock - func.coalesce(ScheduledDelivery.quantity, 0)
 
         query = (
@@ -126,8 +122,7 @@ class InventoryHistoryRepository:
         items = list(result.all())
         return items, int(total_count or 0)
 
-    # -------------------- Export: Excel / PDF --------------------
-
+    #Export: Excel / PDF
     async def inventory_history_export_to_xl(
         self, warehouse_id: str, record_ids: List[str]
     ) -> BytesIO:
@@ -366,98 +361,94 @@ class InventoryHistoryRepository:
             )
         return list(res.scalars().all())
 
-    # -------------------- CSV Import with FK safety --------------------
-
-    async def import_inventory_from_csv(self, warehouse_id: str, csv_data: str) -> None:
-        """Импорт CSV. Требуем, чтобы товар существовал в products.
-        CSV ожидает поля: product_id (article или id), product_name, quantity, zone, date[, row, shelf]
-        Если product_id совпадает с Product.id — используем его. Иначе пробуем найти по Product.article.
-        Если товар не найден — сбор ошибок и HTTP 400.
-        """
+    #CSV Import with FK safety
+    async def import_inventory_from_csv(
+        self,
+        warehouse_id: str,
+        csv_data: str,
+    ) -> None:
         buffer = StringIO(csv_data)
-        reader = csv.DictReader(buffer, delimiter=";")
-
-        rows_to_insert: List[Dict[str, Any]] = []
-        missing: List[str] = []
-
+        reader = csv.DictReader(buffer, delimiter=';')
+        
         for row in reader:
             # Валидация обязательных полей
-            required = ["product_id", "product_name", "quantity", "zone", "date"]
-            if any(not row.get(f) for f in required):
-                # пропускаем пустые/битые строки
-                continue
+            required_fields = ['product_id', 'product_name', 'quantity', 'zone', 'date']
+            for field in required_fields:
+                if not row.get(field):
+                    continue
+            
+            # Парсинг данных
+            product_id = row['product_id'].strip()
+            product_name = row['product_name'].strip()
+            
 
-            raw_pid = row["product_id"].strip()
-            name = row["product_name"].strip()
-            try:
-                quantity = int(row["quantity"]) if row["quantity"] is not None else 0
-            except ValueError:
-                quantity = 0
-            zone = (row.get("zone") or "").strip()
+            quantity = int(row['quantity'])
+            
+            zone = row['zone'].strip()
+            
+            date = datetime.strptime(row['date'], '%Y-%m-%d').date()
+            
+            row_num_val = int(row['row']) if row.get('row') and row['row'].strip() else None
+            shelf = int(row['shelf']) if row.get('shelf') and row['shelf'].strip() else None
 
-            # Дата → делаем aware UTC (полночь)
-            try:
-                d = datetime.strptime(row["date"].strip(), "%Y-%m-%d").date()
-                created_at = datetime.combine(d, time.min).replace(tzinfo=timezone.utc)
-            except Exception:
-                # если формат не совпал — пропускаем запись
-                continue
-
-            # Прочие поля
-            row_num_val = int(row["row"]) if row.get("row") and row["row"].strip() else None
-            shelf_val = row.get("shelf")
-            if shelf_val is not None and str(shelf_val).strip() == "":
-                shelf_val = None
-            if shelf_val is not None:
-                shelf_val = str(shelf_val).strip()
-
-            # Определяем реальный Product по id ИЛИ по article
-            prod = await self.session.scalar(
-                select(Product).where(Product.warehouse_id == warehouse_id, Product.id == raw_pid)
+            query = select(Product.category, Product.article).filter(
+                Product.warehouse_id == warehouse_id,
+                Product.id == product_id,
             )
-            if not prod:
-                prod = await self.session.scalar(
-                    select(Product).where(Product.warehouse_id == warehouse_id, Product.article == raw_pid)
+
+            result = await self.session.execute(query)
+            row = result.first()
+
+            category, article = row
+
+
+            new_record = InventoryHistory(
+                id=uuid.uuid4(),
+                warehouse_id=warehouse_id,
+                product_id=product_id,
+                article=article,
+                name=product_name,
+                stock=quantity,
+                current_zone=zone,
+                current_row=row_num_val,
+                current_shelf=shelf,
+                robot_id=None,
+                created_at=date,
+                category=category,
+                status="ok"
+            )
+            self.session.add(new_record)
+        
+
+        await self.session.commit()
+
+    async def get_statistic(
+        self, 
+        warehouse_id: str,
+    ) ->Dict:
+        
+        query = select(
+            func.count(InventoryHistory.id).label('total_records'),
+            func.count(func.distinct(InventoryHistory.product_id)).label('unique_products_count'),
+            func.sum(
+                case(
+                    (InventoryHistory.stock != func.coalesce(ScheduledDelivery.quantity, 0), 1),
+                    else_=0
                 )
-            if not prod:
-                missing.append(raw_pid)
-                continue
+            ).label('discrepancy_count')
+        ).outerjoin(
+            ScheduledDelivery,
+            InventoryHistory.product_id == ScheduledDelivery.product_id
+        ).filter(
+            InventoryHistory.warehouse_id == warehouse_id
+        )
 
-            # Категория из продукта
-            category = prod.category
+        result = await self.session.execute(query)
 
-            rows_to_insert.append(
-                {
-                    "id": uuid.uuid4(),
-                    "warehouse_id": warehouse_id,
-                    "product_id": prod.id,  # FK гарантирован
-                    "article": prod.article,  # сохраняем реальный артикул
-                    "name": name or prod.name,
-                    "stock": quantity,
-                    "current_zone": zone or None,
-                    "current_row": row_num_val,
-                    "current_shelf": shelf_val,
-                    "robot_id": None,
-                    "created_at": created_at,
-                    "category": category,
-                    "status": "ok",
-                }
-            )
+        row = result.first()
 
-        if missing:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Для импорта не найдены товары (по id/article) на складе {warehouse_id}: {sorted(set(missing))}",
-            )
-
-        if not rows_to_insert:
-            # Нечего вставлять — просто выходим
-            return
-
-        # Пакетная вставка в одной транзакции
-        try:
-            await self.session.execute(insert(InventoryHistory), rows_to_insert)
-            await self.session.commit()
-        except IntegrityError as e:
-            await self.session.rollback()
-            raise e
+        return {
+            'total_records': row.total_records or 0,
+            'unique_products_count': row.unique_products_count or 0,
+            'discrepancy_count': row.discrepancy_count or 0
+        }

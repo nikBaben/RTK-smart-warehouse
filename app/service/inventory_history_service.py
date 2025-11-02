@@ -159,3 +159,14 @@ class InventoryHistoryService:
         await self.repo.import_inventory_from_csv(
             warehouse_id=warehouse_id, csv_data = csv_data
         )
+
+    async def get_statistic(
+        self,
+        warehouse_id: str,
+    ) -> Dict:
+        
+        stat = await self.repo.get_statistic(
+            warehouse_id=warehouse_id
+        )
+
+        return stat

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, status, Body, Response, File, UploadFile
 from app.schemas.inventory_history import InventoryHistoryRead, InventoryHistoryFilters, FilteredInventoryHistoryResponse, InventoryHistoryExport, ChartResponse
 from app.service.inventory_history_service import InventoryHistoryService
 from app.api.deps import get_inventory_history_service  
-from typing import List
+from typing import List,Dict
 
 from io import BytesIO
 import datetime
@@ -203,3 +203,18 @@ async def import_inventory_from_csv(
         raise HTTPException(400, f"Ошибка чтения файла: {str(e)}")
 
     await service.import_inventory_from_csv(warehouse_id=warehouse_id, csv_data=csv_data)
+
+
+@router.post(
+    "/get_statistic/{warehouse_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Получить уникальные категории товаров на складе",
+)
+async def get_statistic(
+    warehouse_id: str,
+    service: InventoryHistoryService = Depends(get_inventory_history_service),
+) -> Dict:
+
+    stat = await service.get_statistic(warehouse_id=warehouse_id)
+
+    return stat
