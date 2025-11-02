@@ -31,7 +31,6 @@ async def patch_product(
 ):
     return await service.edit_product(product_id, payload)
 
-
 @router.delete(
         "/{product_id}", 
         summary="Удалить товар",

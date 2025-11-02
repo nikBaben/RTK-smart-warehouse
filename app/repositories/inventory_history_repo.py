@@ -7,7 +7,8 @@ from datetime import datetime, timedelta
 from io import BytesIO
 import pandas as pd
 import xlsxwriter
-
+from io import StringIO
+import csv
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
@@ -16,11 +17,15 @@ from reportlab.lib.units import inch
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import io
+import uuid
 
 import os
 
 from app.models.inventory_history import InventoryHistory
+from app.models.delivery import ScheduledDelivery
+from app.models.inventory_history import InventoryHistory
 from app.models.warehouse import Warehouse
+from app.models.product import Product
 
 
 class InventoryHistoryRepository:
@@ -39,7 +44,6 @@ class InventoryHistoryRepository:
         )
         return list(result.scalars().all())
     
-
     async def get_filtered_inventory_history(
         self, 
         warehouse_id: str,
@@ -48,8 +52,15 @@ class InventoryHistoryRepository:
         sort_order: str,
         page: int,
         page_size: int
-    ) -> Tuple[List[InventoryHistory], int]:
-        query = select(InventoryHistory).filter(
+    ) -> Tuple[List[Tuple[InventoryHistory, Any, int]], int]:
+        
+        discrepancy = InventoryHistory.stock - func.coalesce(ScheduledDelivery.quantity, 0)
+
+        query = select(InventoryHistory, ScheduledDelivery.quantity, discrepancy.label('discrepancy')
+        ).outerjoin(
+            ScheduledDelivery,
+            InventoryHistory.product_id == ScheduledDelivery.product_id
+        ).filter(
             InventoryHistory.warehouse_id == warehouse_id
         )
         
@@ -123,7 +134,8 @@ class InventoryHistoryRepository:
         query = query.offset(offset).limit(page_size)
 
         result = await self.session.execute(query)
-        item = list(result.scalars().all())
+        item = list(result.all())
+        print(item, total_count)
         return (item, total_count)
     
     async def inventory_history_export_to_xl(
@@ -132,17 +144,26 @@ class InventoryHistoryRepository:
         record_ids: List[str]  
         ) -> BytesIO:
 
-        query = select(InventoryHistory).filter(
-        InventoryHistory.warehouse_id == warehouse_id,
-        InventoryHistory.id.in_(record_ids)
+        query = select(
+            InventoryHistory, 
+            ScheduledDelivery.quantity  # ожидаемое количество
+        ).outerjoin(
+            ScheduledDelivery,
+            InventoryHistory.product_id == ScheduledDelivery.product_id
+        ).filter(
+            InventoryHistory.warehouse_id == warehouse_id,
+            InventoryHistory.id.in_(record_ids)
         )
     
         result = await self.session.execute(query)
-        data = list(result.scalars().all())
+        data = list(result.all())
 
         # Преобразуем данные в список словарей
         data_list = []
-        for item in data:
+        for item, expected_quantity in data:
+
+            stock_info = f"{expected_quantity or 0}/{item.stock or 0}"
+
             data_list.append({
                 'Дата и время проверки': item.created_at,
                 'ID робота': item.robot_id,
@@ -151,7 +172,7 @@ class InventoryHistoryRepository:
                 'Название': item.name,
                 'Категория': item.category,
                 'Статус': item.status,
-                'Количество': item.stock,
+                'Ожидаемое/фактическое количество': stock_info,
                 'Склад': item.warehouse_id
             })
 
@@ -169,7 +190,7 @@ class InventoryHistoryRepository:
             
             header_format = workbook.add_format({
                 'bold': True,
-                'fg_color': '#D7E4BC',
+                'fg_color': '#FFA789',
                 'border': 1
             })
             
@@ -190,7 +211,13 @@ class InventoryHistoryRepository:
         record_ids: List[str]  
         ) -> BytesIO:
 
-        query = select(InventoryHistory).filter(
+        query = select(
+            InventoryHistory, 
+            ScheduledDelivery.quantity  # ожидаемое количество
+        ).outerjoin(
+            ScheduledDelivery,
+            InventoryHistory.product_id == ScheduledDelivery.product_id
+        ).filter(
             InventoryHistory.warehouse_id == warehouse_id,
             InventoryHistory.id.in_(record_ids)
         )
@@ -200,7 +227,7 @@ class InventoryHistoryRepository:
         )
         
         result = await self.session.execute(query)
-        data = list(result.scalars().all())
+        data = list(result.all())
         result_2 = await self.session.execute(query_wh_name)
         wh_name = result_2.scalars().first()
 
@@ -248,14 +275,16 @@ class InventoryHistoryRepository:
         # Заголовки столбцов
         headers = [
             'Дата проверки', 'ID робота', 'Зона', 'Артикул', 
-            'Название', 'Категория', 'Статус', 'Количество', 'Склад'
+            'Название', 'Категория', 'Статус', 'Ожид/Факт Кол-во', 'Склад'
         ]
         table_data.append(headers)
         
         # Данные строк
-        for item in data:
+        for item, expected_quantity in data:
             # Форматируем дату
             created_at = item.created_at.strftime("%d.%m.%Y %H:%M") if item.created_at else ""
+
+            stock_info = f"{expected_quantity or 0}/{item.stock or 0}"
             
             row = [
                 created_at,
@@ -265,7 +294,7 @@ class InventoryHistoryRepository:
                 item.name or "",
                 item.category or "",
                 item.status or "",
-                str(item.stock) if item.stock is not None else "0",
+                stock_info,
                 wh_name
             ]
             table_data.append(row)
@@ -319,7 +348,7 @@ class InventoryHistoryRepository:
             ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
             
             # Данные
-            ('ALIGN', (0, 1), (-1, -1), 'LEFT'),
+            ('ALIGN', (0, 1), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 1), (-1, -1), font_normal),
             ('FONTSIZE', (0, 1), (-1, -1), 8),
             ('TOPPADDING', (0, 1), (-1, -1), 4),
@@ -333,7 +362,7 @@ class InventoryHistoryRepository:
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F9F9F9')]),
             
             # Выравнивание для числовых колонок
-            ('ALIGN', (7, 1), (7, -1), 'RIGHT'),  # Количество
+            ('ALIGN', (7, 1), (7, -1), 'CENTER'),  # Количество
             ('ALIGN', (1, 1), (1, -1), 'CENTER'),  # ID робота
         ])
         
@@ -353,7 +382,6 @@ class InventoryHistoryRepository:
         buffer.seek(0)
         
         return buffer
-    
 
     async def inventory_history_create_graph(
         self,
@@ -532,3 +560,63 @@ class InventoryHistoryRepository:
             .where(func.lower(InventoryHistory.status) == "critical")
         )
         return int(val or 0)
+
+    async def import_inventory_from_csv(
+        self,
+        warehouse_id: str,
+        csv_data: str,
+    ) -> None:
+        """
+        Импорт данных инвентаризации из CSV с обновлением существующих записей
+        """
+        buffer = StringIO(csv_data)
+        reader = csv.DictReader(buffer, delimiter=';')
+        
+        for row in reader:
+            # Валидация обязательных полей
+            required_fields = ['product_id', 'product_name', 'quantity', 'zone', 'date']
+            for field in required_fields:
+                if not row.get(field):
+                    continue
+            
+            # Парсинг данных
+            product_id = row['product_id'].strip()
+            product_name = row['product_name'].strip()
+            
+
+            quantity = int(row['quantity'])
+            
+            zone = row['zone'].strip()
+            
+            date = datetime.strptime(row['date'], '%Y-%m-%d').date()
+            
+            row_num_val = int(row['row']) if row.get('row') and row['row'].strip() else None
+            shelf = int(row['shelf']) if row.get('shelf') and row['shelf'].strip() else None
+
+            query = select(Product.category).filter(
+            Product.warehouse_id == warehouse_id,
+            Product.id == product_id,
+            )
+
+            result = await self.session.execute(query)
+            category = result.scalar_one_or_none()  
+            
+            new_record = InventoryHistory(
+                id=uuid.uuid4(),
+                warehouse_id=warehouse_id,
+                product_id=product_id,
+                article=product_id,
+                name=product_name,
+                stock=quantity,
+                current_zone=zone,
+                current_row=row_num_val,
+                current_shelf=shelf,
+                robot_id=None,
+                created_at=date,
+                category=category,
+                status="ok"
+            )
+            self.session.add(new_record)
+        
+
+        await self.session.commit()

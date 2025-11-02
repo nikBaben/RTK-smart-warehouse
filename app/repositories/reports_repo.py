@@ -11,7 +11,6 @@ class ReportsRepository:
         self.session = session
 
     async def get_deliveries_by_month_and_warehouse(self, year: int, month: int, warehouse_id: str) -> List[Delivery]:
-        """Получить поставки за конкретный месяц и склад"""
         result = await self.session.execute(
             select(Delivery)
             .where(
@@ -26,7 +25,6 @@ class ReportsRepository:
         return result.scalars().all()
 
     async def get_shipments_by_month_and_warehouse(self, year: int, month: int, warehouse_id: str) -> List[Shipment]:
-        """Получить отгрузки за конкретный месяц и склад"""
         result = await self.session.execute(
             select(Shipment)
             .where(
@@ -41,7 +39,6 @@ class ReportsRepository:
         return result.scalars().all()
 
     async def get_operations_by_year_and_warehouse(self, year: int, warehouse_id: str) -> Tuple[List[Delivery], List[Shipment]]:
-        """Получить все поставки и отгрузки за год для конкретного склада"""
         deliveries_result = await self.session.execute(
             select(Delivery)
             .where(

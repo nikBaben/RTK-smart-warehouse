@@ -1,4 +1,3 @@
-# app/models/warehouse.py
 from __future__ import annotations
 
 from datetime import datetime
@@ -25,7 +24,7 @@ class Warehouse(Base):
     products: Mapped[List["Product"]] = relationship(  # type: ignore
         back_populates="warehouse",
         lazy="selectin",
-        cascade="save-update, merge",      # без delete-orphan — избегаем каскадных «шторок»
+        cascade="save-update, merge",     
         passive_deletes=True,
     )
 
@@ -44,6 +43,6 @@ class Warehouse(Base):
     inventory_history: Mapped[List["InventoryHistory"]] = relationship(  # type: ignore
         back_populates="warehouse",
         lazy="selectin",
-        cascade="save-update, merge",      # историю не удаляем каскадом
+        cascade="save-update, merge",      
         passive_deletes=True,
     )

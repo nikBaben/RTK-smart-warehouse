@@ -29,7 +29,7 @@ class PredictRepository:
             PredictAt.depletion_at_p90.label("p90"),
             PredictAt.p_deplete_within,
         )
-        .join(Product, Product.id == PredictAt.product_id)  # ← вот тут соединение
+        .join(Product, Product.id == PredictAt.product_id)  
         .where(
             PredictAt.warehouse_id == warehouse_id,
             PredictAt.depletion_at.is_not(None),

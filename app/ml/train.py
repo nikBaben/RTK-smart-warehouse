@@ -22,16 +22,13 @@ async def train_for_product(
 
     train_df = df.copy()
 
-    # ✅ Убираем таймзону — Prophet не поддерживает timezone-aware даты
     train_df["ds"] = pd.to_datetime(train_df["ds"], utc=True).dt.tz_localize(None)
     train_df["y"] = train_df["y"].astype(float)
 
-    # Обучаем модель
     m = Prophet(yearly_seasonality=True, weekly_seasonality=True)
     m.add_country_holidays("RU")
     m.fit(train_df)
 
-    # Сохраняем модель
     save_model(m, model_path)
     print(f"✅ Model trained and saved to: {model_path}")
     return model_path

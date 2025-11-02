@@ -18,6 +18,7 @@ from app.api.deps import get_product_repo,get_robot_history_repo,get_inventory_h
 
 router = APIRouter()
 
+
 @router.websocket("/ws/warehouses/{warehouse_id}")
 async def ws_warehouse(
     ws: WebSocket, 
@@ -29,11 +30,11 @@ async def ws_warehouse(
     ):
     session_id = await manager.connect(ws, warehouse_id)
     try:
+        await publish_product_snapshot(warehouse_id)
         await publish_robot_avg_snapshot(repo_robot, warehouse_id)
         await publish_critical_unique_articles_snapshot(repo_inventory_history, warehouse_id)
         await publish_inventory_scanned_24h_snapshot(repo_inventory_history, warehouse_id)
         await publish_status_avg_snapshot(repo, warehouse_id)
-        await publish_product_snapshot(repo, warehouse_id)
         await publish_robot_activity_series_from_history(repo_robot_history, warehouse_id, force=True)
         await publish_robot_status_count_snapshot(repo_robot, warehouse_id)
         await publish_initial_product_scan_unicast(repo_inventory_history, warehouse_id, session_id)

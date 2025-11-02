@@ -14,15 +14,13 @@ async def create_user_handler(
     keycloak_service: KeycloakService = Depends(get_keycloak_service)
 ):
     try:
-        # 1. Создаем пользователя в Keycloak
         keycloak_user_id = await keycloak_service.create_user(
             email=user_in.email,
             password=user_in.password,
-            first_name=user_in.name,  # или разделить имя на first_name/last_name если нужно
-            last_name="",  # или добавить поле в схему
-            username=user_in.email  # используем email как username
+            first_name=user_in.name, 
+            last_name="", 
+            username=user_in.email  
         )
-        # 2. Создаем пользователя в БД приложения и связываем с Keycloak ID
         user = await user_service.create_user_with_keycloak(
             user_create=user_in,
             kkid=keycloak_user_id
@@ -31,7 +29,6 @@ async def create_user_handler(
         return user
         
     except ValueError as e:
-        # Удаляем пользователя из Keycloak если создание в БД не удалось
         if 'keycloak_user_id' in locals():
             await keycloak_service.delete_user(keycloak_user_id)
         raise HTTPException(
@@ -39,14 +36,12 @@ async def create_user_handler(
             detail=str(e)
         )
     except Exception as e:
-        # Откатываем изменения в Keycloak при любой ошибке
         if 'keycloak_user_id' in locals():
             await keycloak_service.delete_user(keycloak_user_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create user: {str(e)}"
         )
-
 
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user_handler(
@@ -61,22 +56,18 @@ async def get_user_handler(
         )
     return user
 
-
 @router.put("/{user_id}", response_model=UserResponse)
 async def update_user_handler(
     user_id: int,
     user_update: UserUpdate,
     user_service: UserService = Depends(get_user_service)
 ):
-    # Пытаемся обновить пользователя
     user = await user_service.update_user(user_id, user_update)
     
-    # Если пользователь не найден (вернулся None), бросаем исключение
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
     
-    # Если пользователь успешно обновлен, возвращаем его
     return user

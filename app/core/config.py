@@ -1,4 +1,3 @@
-# app/core/config.py
 from __future__ import annotations
 from typing import Optional, List
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -8,22 +7,22 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore",        # игнорим лишние ключи из .env
-        case_sensitive=False,  # нечувствительно к регистру
+        extra="ignore",        
+        case_sensitive=False,  
     )
 
-    # --- базовые ---
+    #базовые
     APP_NAME: str = "rtk-smart-warehouse"
     API_V1_PREFIX: str = "/api/v1"
-    CORS_ORIGINS: List[str] = ["*"]  # pydantic распарсит '["*"]' из .env
+    CORS_ORIGINS: List[str] = ["*"]  
 
-    # --- БД ---
+    #БД
     DB_URL: Optional[str] = Field(
         default=None,
         validation_alias=AliasChoices("DB_URL", "DATABASE_URL", "SQLALCHEMY_DATABASE_URI", "DB_DSN"),
     )
 
-    # совместимость
+    #совместимость
     @property
     def DATABASE_URL(self) -> Optional[str]:
         return self.DB_URL
@@ -36,11 +35,11 @@ class Settings(BaseSettings):
     def DB_DSN(self) -> Optional[str]:
         return self.DB_URL
 
-    # --- Redis ---
+    #Redis
     USE_REDIS: bool = True
     REDIS_DSN: str = "redis://redis:6379/0"
 
-    # --- Keycloak (делаем опциональными, чтобы не валиться, если чего-то нет) ---
+    #Keycloak (делаем опциональными, чтобы не валиться, если чего-то нет) ---
     KEYCLOAK_URL: Optional[str] = None
     KEYCLOAK_REALM: Optional[str] = None
     KEYCLOAK_CLIENT_ID: Optional[str] = None

@@ -1,12 +1,14 @@
-from typing import Optional, List,Dict
+from typing import Optional, List, Dict, Iterable, Tuple
+from datetime import datetime
+
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only, noload
-from sqlalchemy import select, func,update,distinct,case,tuple_
+from sqlalchemy import select, func, update, distinct, case, tuple_, text
 from sqlalchemy.exc import IntegrityError
 
 from app.models.product import Product
-from app.models.warehouse import Warehouse 
+from app.models.warehouse import Warehouse
 
 
 class ProductRepository:
@@ -33,20 +35,20 @@ class ProductRepository:
             )
             if not exists:
                 raise ValueError(f"Склад '{warehouse_id}' не найден")
-            
-        await self.check_limit(warehouse_id,stock)
+
+        await self.check_limit(warehouse_id, stock)
 
         product = Product(
             id=id,
             name=name,
             category=category,
-            article = article,
-            stock = stock,
-            min_stock=stock*0.2,
-            optimal_stock=stock* 0.8,
-            current_zone =current_zone, 
-            current_row = current_row,
-            current_shelf = current_shelf,
+            article=article,
+            stock=stock,
+            min_stock=stock * 0.2,
+            optimal_stock=stock * 0.8,
+            current_zone=current_zone,
+            current_row=current_row,
+            current_shelf=current_shelf,
             warehouse_id=warehouse_id,
         )
 
@@ -61,19 +63,28 @@ class ProductRepository:
         await self.session.refresh(product)
         return product
 
-    async def get_all_by_warehouse_id(self, warehouse_id: str):
+    async def get_all_by_warehouse_id(self, warehouse_id: str) -> List[Product]:
         stmt = (
             select(Product)
             .where(Product.warehouse_id == warehouse_id)
             .options(
-                # грузим только нужные поля — быстрее
                 load_only(
-                    Product.id, Product.name, Product.category, Product.article,
-                    Product.stock, Product.min_stock, Product.optimal_stock,
-                    Product.current_zone, Product.current_row, Product.current_shelf,
-                    Product.status, Product.warehouse_id, Product.last_scanned_at,
+                    Product.id,
+                    Product.name,
+                    Product.category,
+                    Product.article,
+                    Product.stock,
+                    Product.min_stock,
+                    Product.optimal_stock,
+                    Product.current_zone,
+                    Product.current_row,
+                    Product.current_shelf,
+                    Product.status,
+                    Product.warehouse_id,
+                    Product.last_scanned_at,
+                    Product.created_at,  
                 ),
-                # не тащим отношения
+
                 noload(Product.warehouse),
                 noload(Product.history),
             )
@@ -81,12 +92,9 @@ class ProductRepository:
         res = await self.session.execute(stmt)
         return list(res.scalars().all())
 
-
     async def get(self, id: str) -> Optional[Product]:
-        return await self.session.scalar(
-            select(Product).where(Product.id == id)
-        )
-    
+        return await self.session.scalar(select(Product).where(Product.id == id))
+
     async def edit(
         self,
         id: str,
@@ -95,8 +103,8 @@ class ProductRepository:
         article: Optional[str] = None,
         stock: Optional[int] = None,
         category: Optional[str] = None,
-        current_row: Optional[int],
-        current_shelf: Optional[str],
+        current_row: Optional[int] = None,
+        current_shelf: Optional[str] = None,
         warehouse_id: Optional[str] = None,
         check_warehouse_exists: bool = True,
     ) -> Optional[Product]:
@@ -119,11 +127,15 @@ class ProductRepository:
                 raise ValueError(f"Склад '{warehouse_id}' не найден")
             product.warehouse_id = new_wh = warehouse_id
 
-        if stock != old_stock:
-            await self.bump_products_count(old_wh,-product.stock)
-            await self.check_limit(warehouse_id,stock)
-            await self.bump_products_count(old_wh,+stock)
-        
+        # корректно обрабатываем изменение стока
+        if stock is not None and stock != old_stock:
+            # сначала снимаем старое количество с прежнего склада
+            await self.bump_products_count(old_wh, -old_stock)
+            # проверяем лимит на целевом складе (вдруг перенесли)
+            target_wh = new_wh
+            await self.check_limit(target_wh, stock)
+            # добавляем новое количество на целевой склад
+            await self.bump_products_count(target_wh, +stock)
 
         if name is not None:
             product.name = name
@@ -155,7 +167,7 @@ class ProductRepository:
         offset: int = 0,
         warehouse_id: Optional[str] = None,
         name_query: Optional[str] = None,
-    ) -> list[Product]:
+    ) -> List[Product]:
         stmt = select(Product)
         if warehouse_id:
             stmt = stmt.where(Product.warehouse_id == warehouse_id)
@@ -166,17 +178,13 @@ class ProductRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    
-
-    async def delete(self, id: str):
-        product = await self.session.scalar(
-            select(Product).where(Product.id == id)
-        )
+    async def delete(self, id: str) -> None:
+        product = await self.session.scalar(select(Product).where(Product.id == id))
         
         if not product:
             raise ValueError(f"Товар с id '{id}' не найден.")
 
-        await self.bump_products_count(product.warehouse_id,-product.stock)
+        await self.bump_products_count(product.warehouse_id, -product.stock)
         await self.session.delete(product)
         
         try:
@@ -185,19 +193,26 @@ class ProductRepository:
             await self.session.rollback()
             raise e
 
-    async def check_limit(self, warehouse_id:str, stock:int):
+    #Проверка, что на складе достаточно места для добавления указанного количества товаров.
+    #Если в БД нет данных о лимите/счётчике — спокойно выходим (не ограничиваем).
+    async def check_limit(self, warehouse_id: str, stock: int) -> None:
         result = await self.session.execute(
             select(Warehouse.max_products, Warehouse.products_count)
             .where(Warehouse.id == warehouse_id)
         )
-        limit, products_count = result.one_or_none() or (None, None)
-        allow = limit - products_count
+        row = result.one_or_none()
+        if not row:
+            return
+        limit, products_count = row
+        if limit is None or products_count is None:
+            return
+        allow = max(limit - products_count, 0)
         if stock > allow:
             raise HTTPException(
-            status_code=400,
-            detail=f"Склад '{warehouse_id}' переполнен. Можно добавить только {allow} товаров."
-        )
-    
+                status_code=400,
+                detail=f"Склад '{warehouse_id}' переполнен. Можно добавить только {allow} товаров.",
+            )
+
     async def get_name(self, product_id: str) -> Optional[str]:
         res = await self.session.execute(
             text("SELECT name FROM products WHERE id = :pid"),
@@ -205,27 +220,26 @@ class ProductRepository:
         )
         row = res.first()
         return row[0] if row else None
-    
-    async def required_delivery(self, product_id: str) -> Optional[str]:
+
+    async def required_delivery(self, product_id: str) -> Optional[int]:
         result = await self.session.execute(
-        select(Product.stock, Product.optimal_stock)
-        .where(Product.id == product_id)
+            select(Product.stock, Product.optimal_stock).where(Product.id == product_id)
         )
         row = result.one_or_none()
         if not row:
             return None
 
         stock, optimal_stock = row
-        required = max(optimal_stock - stock, 0)
-        return required
-    
+        required = max((optimal_stock or 0) - (stock or 0), 0)
+        return int(required)
+
     async def get_stock(self, product_id: str) -> Optional[int]:
         result = await self.session.execute(
             select(Product.stock).where(Product.id == product_id)
         )
         row = result.one_or_none()
-        return row[0] if row else None
-        
+        return int(row[0]) if row and row[0] is not None else None
+
     async def bump_products_count(self, warehouse_id: str, delta: int) -> None:
         if not warehouse_id:
             return
@@ -276,62 +290,25 @@ class ProductRepository:
         rows = (await self.session.execute(stmt)).all()
         return {status: round(float(avg or 0.0), 2) for status, avg in rows}
 
-    async def get_distinct_warehouse_ids(self) -> List[str]:
-        rows = await self.session.execute(select(distinct(Product.warehouse_id)))
-        return [wid for (wid,) in rows.all() if wid]
-    
-        # imports
-    from typing import Iterable, List, Dict, Optional, Tuple
-    from datetime import datetime
-    from sqlalchemy import select, func, update, case, text  # case важно!
-    from sqlalchemy.orm import load_only, noload
-    from app.models.product import Product
-
-    # 1) Список уникальных складов по товарам (для стримера product.snapshot worker-режим)
-    async def get_distinct_warehouse_ids(self) -> List[str]:
-        rows = await self.session.execute(
-            select(func.distinct(Product.warehouse_id))
-        )
-        return [wid for (wid,) in rows.all() if wid]
-
-    # 2) Пересчёт статусов по складу (ok/low/critical) — одной SQL
-    async def recompute_statuses_for_warehouse(self, warehouse_id: str) -> int:
-        stmt = (
-            update(Product)
-            .where(Product.warehouse_id == warehouse_id)
-            .values(
-                status=case(
-                    (Product.stock < Product.min_stock, "critical"),
-                    (Product.stock < Product.optimal_stock, "low"),
-                    else_="ok",
-                )
-            )
-            .execution_options(synchronize_session=False)
-        )
-        res = await self.session.execute(stmt)
-        # Не коммитим здесь — это делает наружный провайдер/юнит работы
-        return int(getattr(res, "rowcount", 0) or 0)
-
-    # 3) Средние stock по статусам в рамках склада (для inventory.status_avg -> теперь Product)
-    async def avg_stock_by_status(self, warehouse_id: str) -> Dict[str, float]:
-        rows = await self.session.execute(
-            select(func.lower(Product.status), func.avg(Product.stock))
-            .where(Product.warehouse_id == warehouse_id)
-            .where(Product.status.is_not(None))
-            .group_by(func.lower(Product.status))
-        )
-        return {str(status): round(float(avg or 0.0), 2) for status, avg in rows.all()}
-
-    # (опционально) Узкая выборка товаров по складу (минимум полей)
     async def get_all_by_warehouse_id_light(self, warehouse_id: str) -> List[Product]:
         res = await self.session.execute(
             select(Product)
             .options(
                 load_only(
-                    Product.id, Product.name, Product.category, Product.article,
-                    Product.stock, Product.min_stock, Product.optimal_stock,
-                    Product.current_zone, Product.current_row, Product.current_shelf,
-                    Product.status, Product.warehouse_id, Product.last_scanned_at,
+                    Product.id,
+                    Product.name,
+                    Product.category,
+                    Product.article,
+                    Product.stock,
+                    Product.min_stock,
+                    Product.optimal_stock,
+                    Product.current_zone,
+                    Product.current_row,
+                    Product.current_shelf,
+                    Product.status,
+                    Product.warehouse_id,
+                    Product.last_scanned_at,
+                    Product.created_at,  
                 ),
                 noload(Product.warehouse),
                 noload(Product.history),
@@ -340,7 +317,6 @@ class ProductRepository:
         )
         return list(res.scalars().all())
 
-    # 4) Массовая пометка времени последнего скана (для эмиттера сканов)
     async def mark_last_scanned(self, product_ids: Iterable[str], when: datetime) -> None:
         ids = list(set(product_ids))
         if not ids:
@@ -350,7 +326,6 @@ class ProductRepository:
         )
         await self.session.flush()
 
-    # 5) Быстрый seed «давности» по клеткам для склада
     async def min_scan_seed_rows(self, warehouse_id: str) -> List[Tuple[int, str, datetime]]:
         rows = await self.session.execute(
             select(
@@ -366,7 +341,6 @@ class ProductRepository:
         )
         return [(int(r), str(s), ms) for r, s, ms in rows.all()]
 
-    # 6) Фильтр «в каких парах (row, shelf) есть eligible товары»
     async def eligible_cells_by_pairs(
         self,
         warehouse_id: str,
@@ -385,9 +359,6 @@ class ProductRepository:
             .distinct()
         )
         return [(int(r), str(s)) for r, s in rows.all()]
-
-    # 7) Полный fallback «самые старые клетки»
-    from sqlalchemy import tuple_  # если ещё не импортировал
 
     async def eligible_cells_fallback(
         self,
@@ -410,7 +381,6 @@ class ProductRepository:
         )
         return [(int(r), str(s), ms) for r, s, ms in rows.all()]
 
-    # 8) Товары в ячейке, пригодные к скану (узкая загрузка)
     async def eligible_products_in_cell(
         self,
         warehouse_id: str,
@@ -423,9 +393,17 @@ class ProductRepository:
             select(Product)
             .options(
                 load_only(
-                    Product.id, Product.name, Product.category, Product.article,
-                    Product.stock, Product.min_stock, Product.optimal_stock,
-                    Product.current_zone, Product.current_row, Product.current_shelf,
+                    Product.id,
+                    Product.name,
+                    Product.category,
+                    Product.article,
+                    Product.stock,
+                    Product.min_stock,
+                    Product.optimal_stock,
+                    Product.current_zone,
+                    Product.current_row,
+                    Product.current_shelf,
+                    Product.created_at, 
                 ),
                 noload(Product.warehouse),
                 noload(Product.history),

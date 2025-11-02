@@ -1,4 +1,3 @@
-# app/service/predict_service.py
 import logging
 from datetime import datetime
 from typing import List, Dict, Optional
@@ -24,7 +23,7 @@ class PredictService:
         self.product_repo = product_repo
         self.warehouse_repo = warehouse_repo
 
-    # === Для API: топ-5 ближайших к исчерпанию ===
+    #Для API: топ-5 ближайших к исчерпанию
     async def get_top5_depletion(self, warehouse_id: str) -> List[PredictResponse]:
         rows = await self.repo.get_top5_soon_depleted(warehouse_id)
         items = []
@@ -44,7 +43,7 @@ class PredictService:
 
         return items
 
-    # === Пересчёт прогнозов для всех складов ===
+    #Пересчёт прогнозов для всех складов
     async def rebuild_predictions_for_all_warehouses(self, horizon_days: int = 60):
         if not self.warehouse_repo:
             raise RuntimeError("WarehouseRepository не инициализирован в PredictService")
@@ -53,18 +52,18 @@ class PredictService:
         for wid in warehouse_ids:
             await self.rebuild_predictions_for_warehouse(wid, horizon_days)
 
-    # === Пересчёт прогнозов для одного склада ===
+    #Пересчёт прогнозов для одного склада
     async def rebuild_predictions_for_warehouse(self, warehouse_id: str, horizon_days: int = 60):
         log.info(f"🔮 Пересчёт прогнозов для склада {warehouse_id}...")
         session = self.repo.session
 
-        # 1) список товаров для склада
+        #список товаров для склада
         product_ids = await fetch_all_product_ids(session, warehouse_id)
         if not product_ids:
             log.warning(f"⚠️ Нет товаров на складе {warehouse_id}")
             return
 
-        # 2) основной цикл по товарам
+        #основной цикл по товарам
         results = []
         for pid in product_ids:
             # имя товара (если есть репозиторий товаров)
@@ -80,7 +79,7 @@ class PredictService:
 
             # путь к персональной модели
             model_path = f"/app/models_store/{pid}.pkl"
-            predictor = Predictor(model_path=model_path)  # внутри есть fallback
+            predictor = Predictor(model_path=model_path)  
 
             try:
                 # расширенный прогноз с доверительными интервалами
@@ -112,7 +111,7 @@ class PredictService:
             except Exception as e:
                 log.error(f"❌ Ошибка при прогнозе {pid}: {e}")
 
-        # 3) сохранение в predict_at
+        #сохранение в predict_at
         await self.repo.save_predictions(results)
         log.info(f"💾 Обновлено {len(results)} записей для склада {warehouse_id}")
 

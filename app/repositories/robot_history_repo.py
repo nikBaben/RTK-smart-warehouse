@@ -9,6 +9,11 @@ from sqlalchemy import select, func, and_, distinct
 
 from app.models.robot import Robot
 from app.models.robot_history import RobotHistory
+from typing import Dict, List, Optional, Tuple
+from datetime import datetime
+from sqlalchemy import select, func, and_
+from app.models.robot_history import RobotHistory
+from app.models.robot import Robot
 
 
 class RobotHistoryRepository:
@@ -16,18 +21,12 @@ class RobotHistoryRepository:
         self.session = session
 
     async def total_robots(self, warehouse_id: str) -> int:
-        """
-        Количество роботов на складе.
-        """
         val = await self.session.scalar(
             select(func.count(Robot.id)).where(Robot.warehouse_id == warehouse_id)
         )
         return int(val or 0)
 
     async def latest_history_timestamp(self, warehouse_id: str) -> Optional[datetime]:
-        """
-        Максимальная дата в истории для склада (None, если записей нет).
-        """
         return await self.session.scalar(
             select(func.max(RobotHistory.created_at)).where(
                 RobotHistory.warehouse_id == warehouse_id
@@ -37,10 +36,6 @@ class RobotHistoryRepository:
     async def baseline_statuses_before(
         self, warehouse_id: str, before_ts: datetime
     ) -> Dict[str, str]:
-        """
-        Последний статус каждого робота ДО начала окна (strictly < before_ts).
-        Возвращает {robot_id: status_lower}.
-        """
         subq = (
             select(
                 RobotHistory.robot_id.label("rid"),
@@ -76,10 +71,6 @@ class RobotHistoryRepository:
         start_inclusive: datetime,
         end_inclusive: datetime,
     ) -> List[Tuple[str, str, datetime]]:
-        """
-        События статусов внутри окна [start, end], по времени возрастания.
-        Возвращает список кортежей (robot_id, status_lower, created_at).
-        """
         q = (
             select(RobotHistory.robot_id, RobotHistory.status, RobotHistory.created_at)
             .where(RobotHistory.warehouse_id == warehouse_id)
@@ -91,20 +82,13 @@ class RobotHistoryRepository:
         return [(str(rid), (status or "").lower(), ts) for rid, status, ts in rows.all()]
 
     async def get_distinct_warehouse_ids(self) -> List[str]:
-        """
-        Список складов, для которых есть события в истории роботов.
-        """
         rows = await self.session.execute(select(distinct(RobotHistory.warehouse_id)))
         return [wid for (wid,) in rows.all() if wid]
 
     async def get_warehouse_id_by_history_id(self, history_id: str) -> Optional[str]:
-        """
-        Найти склад по идентификатору записи истории.
-        """
         return await self.session.scalar(
             select(RobotHistory.warehouse_id).where(RobotHistory.id == history_id)
         )
-
 
     async def count_scans_since(self, warehouse_id: str, since_utc: datetime) -> int:
         stmt = (
@@ -125,14 +109,6 @@ class RobotHistoryRepository:
         rows = await self.session.execute(select(distinct(InventoryHistory.warehouse_id)))
         return [wid for (wid,) in rows.all() if wid]
 
-    # imports
-    from typing import Dict, List, Optional, Tuple
-    from datetime import datetime
-    from sqlalchemy import select, func, and_
-    from app.models.robot_history import RobotHistory
-    from app.models.robot import Robot
-
-    # 1) Записать событие истории
     async def log(self, robot_id: str, warehouse_id: str, status: str, created_at: datetime) -> None:
         self.session.add(RobotHistory(
             id = str(uuid4()), 
@@ -143,21 +119,18 @@ class RobotHistoryRepository:
         ))
         await self.session.flush()
 
-    # 2) Всего роботов по складу (нужно для процентов активности)
     async def total_robots(self, warehouse_id: str) -> int:
         val = await self.session.scalar(
             select(func.count(Robot.id)).where(Robot.warehouse_id == warehouse_id)
         )
         return int(val or 0)
 
-    # 3) Последняя метка времени в истории склада
     async def latest_history_timestamp(self, warehouse_id: str) -> Optional[datetime]:
         ts = await self.session.scalar(
             select(func.max(RobotHistory.created_at)).where(RobotHistory.warehouse_id == warehouse_id)
         )
         return ts
 
-    # 4) Базовые статусы роботов ДО начала окна
     async def baseline_statuses_before(
         self,
         warehouse_id: str,
@@ -185,7 +158,6 @@ class RobotHistoryRepository:
             out[str(rid)] = (status or "").lower()
         return out
 
-    # 5) События в окне [start, end]
     async def events_in_window(
         self,
         warehouse_id: str,
@@ -204,14 +176,12 @@ class RobotHistoryRepository:
             out.append((str(rid), (status or "").lower(), ts))
         return out
 
-    # 6) Список складов, где есть история
     async def get_distinct_warehouse_ids(self) -> List[str]:
         rows = await self.session.execute(
             select(func.distinct(RobotHistory.warehouse_id))
         )
         return [wid for (wid,) in rows.all() if wid]
 
-    # 7) Найти склад по id записи истории
     async def get_warehouse_id_by_history_id(self, history_id: str) -> Optional[str]:
         wid = await self.session.scalar(
             select(RobotHistory.warehouse_id).where(RobotHistory.id == history_id)

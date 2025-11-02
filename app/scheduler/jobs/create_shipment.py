@@ -16,7 +16,6 @@ log = logging.getLogger("scheduler.job")
 def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
-
 #Защита от дублей через advisory-lock + имя отправки по time-bucket
 #Берём только товары со stock > 0
 #Создаём Shipment и строки ShipmentItems

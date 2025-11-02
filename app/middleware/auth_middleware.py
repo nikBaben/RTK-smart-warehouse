@@ -18,28 +18,23 @@ PUBLIC_PATHS = [
 ]
 
 async def auth_middleware(request: Request, call_next):
-    """Глобальный middleware аутентификации"""
     path = request.url.path
+    print(f"Middleware checking path: {path}")
     
-    # ДЛЯ ОТЛАДКИ - выводим путь и проверяем совпадения
-    print(f"🔍 Middleware checking path: {path}")
-    
-    # Пропускаем публичные пути
     is_public = False
     for pattern in PUBLIC_PATHS:
         if re.match(pattern, path):
             is_public = True
-            print(f"✅ Public path matched: {pattern} -> {path}")
+            print(f"Public path matched: {pattern} -> {path}")
             break
     
     if is_public:
         return await call_next(request)
 
-    print(f"🔒 Protected path: {path}")
+    print(f"Protected path: {path}")
 
-    # Проверяем Authorization header
     auth_header = request.headers.get("Authorization")
-    print(f"🔑 Authorization header: {auth_header}")
+    print(f"Authorization header: {auth_header}")
     
     token = auth_header
     
@@ -49,7 +44,7 @@ async def auth_middleware(request: Request, call_next):
             detail="Missing or invalid authorization header"
         )
 
-    print(f"🔑 Token: {token[7:]}...")
+    print(f"Token: {token[7:]}...")
 
     try:
         is_valid = await auth_service.validate_token_internal(token[7:])

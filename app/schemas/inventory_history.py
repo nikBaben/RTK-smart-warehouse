@@ -9,6 +9,8 @@ class InventoryHistoryBase(BaseModel):
     category: str = Field(..., min_length=1, max_length=100, description="Категория товара")
     article:  str = Field(..., min_length=1, max_length=100, description="Артикул товара")
     stock: conint(ge=0) = Field(100, description="Всего товаров") # type: ignore
+    #min_stock: conint(ge=0) = Field(20, description="Минимальный запас товара на складе") # type: ignore
+    #optimal_stock: conint(ge=0) = Field(80, description="Оптимальный запас товара на складе") # type: ignore
     current_row: int = 0
     current_shelf: str = "A"
     current_zone: str = "Хранение"
@@ -74,9 +76,8 @@ class InventoryHistoryExport(BaseModel):
 
 
 class FilteredInventoryHistoryResponse(BaseModel):
-    data: Tuple[List[InventoryHistoryRead], int]  
+    data: Tuple[List[Tuple[InventoryHistoryRead, Any, int]], int]  
 
 class ChartResponse(BaseModel):
     data: Dict[str, List[Tuple[datetime, int]]]
-
 

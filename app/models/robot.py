@@ -1,4 +1,3 @@
-# app/models/robot.py
 from __future__ import annotations
 
 from datetime import datetime
@@ -33,7 +32,7 @@ class Robot(Base):
     history: Mapped[List["InventoryHistory"]] = relationship(
         back_populates="robot",
         lazy="selectin",
-        cascade="save-update, merge",    # историю не удаляем
+        cascade="save-update, merge",    
         passive_deletes=True,
     )
     robot_history: Mapped[List["RobotHistory"]] = relationship(

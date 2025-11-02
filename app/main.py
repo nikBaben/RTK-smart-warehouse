@@ -1,4 +1,3 @@
-# app/main.py
 from __future__ import annotations
 
 import asyncio
@@ -40,8 +39,7 @@ app.add_middleware(
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 app.include_router(ws_router.router, prefix="/api") 
 
-app.include_router(supplies.router)
-app.include_router(reports.router)
+
 
 # Держим ссылку на фон.таску форвардера, чтобы корректно её останавливать
 _redis_forwarder_task: asyncio.Task | None = None
@@ -49,10 +47,10 @@ _redis_forwarder_task: asyncio.Task | None = None
 
 @app.on_event("startup")
 async def _startup() -> None:
-    # Инициализируем Bus для ТЕКУЩЕГО loop'а (это же и connect)
+    #Инициализируем Bus для ТЕКУЩЕГО loop'а (это же и connect)
     await get_bus_for_current_loop()
 
-    # Стартуем форвардер: Redis (Pub/Sub) → WS-подписчики
+    #Стартуем форвардер: Redis (Pub/Sub) → WS-подписчики
     global _redis_forwarder_task
     _redis_forwarder_task = asyncio.create_task(start_redis_forwarder())
     print("🌐 API started. Redis→WS forwarder is running.")
@@ -60,7 +58,7 @@ async def _startup() -> None:
 
 @app.on_event("shutdown")
 async def _shutdown() -> None:
-    # Останавливаем форвардер
+    #Останавливаем форвардер
     global _redis_forwarder_task
     if _redis_forwarder_task:
         _redis_forwarder_task.cancel()
@@ -68,6 +66,6 @@ async def _shutdown() -> None:
             await _redis_forwarder_task
         _redis_forwarder_task = None
 
-    # Закрываем loop-local Bus
+    #Закрываем loop-local Bus
     await close_bus_for_current_loop()
     print("🛑 API stopped. Redis connection closed.")

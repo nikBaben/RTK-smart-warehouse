@@ -1,4 +1,3 @@
-# app/events/bus.py
 from __future__ import annotations
 
 import os
@@ -6,11 +5,10 @@ import json
 import asyncio
 from typing import Dict, Optional
 
-# Пытаемся использовать современный клиент redis-py
 try:
-    import redis.asyncio as aioredis  # redis>=4.2
-except Exception:  # fallback на старый пакет
-    import aioredis  # type: ignore
+    import redis.asyncio as aioredis 
+except Exception:              
+    import aioredis                     # type: ignore
 
 
 class EventBus:
@@ -24,7 +22,7 @@ class EventBus:
                 self._dsn,
                 encoding="utf-8",
                 decode_responses=True,
-                health_check_interval=30,   # <--- добавляем это
+                health_check_interval=30,  
                 retry_on_timeout=True,
             )
 
@@ -43,16 +41,13 @@ class EventBus:
             await self._redis.close()
             self._redis = None
 
-
 # Каналы
 ROBOT_CH = "ws:robot"
 COMMON_CH = "ws:common"
 
 REDIS_DSN = os.getenv("REDIS_DSN", "redis://myapp-redis:6379/0")
 
-# --- loop-local registry ---
 _buses: Dict[int, EventBus] = {}
-
 
 async def get_bus_for_current_loop() -> EventBus:
     """
@@ -68,9 +63,8 @@ async def get_bus_for_current_loop() -> EventBus:
         _buses[key] = bus
     return bus
 
-
+#Закрывает и удаляет bus для текущего loop’а (аккуратная остановка потока).
 async def close_bus_for_current_loop() -> None:
-    """Закрывает и удаляет bus для текущего loop’а (аккуратная остановка потока)."""
     loop = asyncio.get_running_loop()
     key = id(loop)
     bus = _buses.pop(key, None)

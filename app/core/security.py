@@ -2,18 +2,16 @@ import hashlib
 import secrets
 
 def get_password_hash(password: str) -> str:
-    """Создать хеш пароля с солью"""
     salt = secrets.token_hex(16)
     password_hash = hashlib.pbkdf2_hmac(
         'sha256',
         password.encode('utf-8'),
         salt.encode('utf-8'),
-        100000  # Количество итераций
+        100000  
     )
     return f"{salt}${password_hash.hex()}"
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Проверить пароль"""
     try:
         salt, stored_hash = hashed_password.split('$')
         new_hash = hashlib.pbkdf2_hmac(

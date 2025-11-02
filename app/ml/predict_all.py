@@ -1,4 +1,3 @@
-# app/ml/predict_all.py
 from __future__ import annotations
 
 import argparse
@@ -9,8 +8,6 @@ from typing import List, Tuple
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# ⚠️ Важно: у тебя сессия называется async_session в app.db.session
-# Если у тебя алиас другой — поправь строку импорта ниже.
 from app.db.session import async_session as async_session_maker
 
 from app.ml.predictor import Predictor
@@ -21,12 +18,8 @@ async def predict_all_for_warehouse(
     warehouse_id: str,
     horizon_days: int = 60,
     default_model_path: str = "/app/models_store/PROD_DEMO.pkl",
-) -> None:
-    """
-    Прогоняет прогноз истощения для всех товаров склада и складывает результаты в predict_at.
-    """
+):
     async with async_session_maker() as session:
-        # 1) список товаров
         product_ids = await fetch_all_product_ids(session, warehouse_id)
         print(f"Всего товаров для прогноза (склад {warehouse_id}): {len(product_ids)}")
 
@@ -41,24 +34,19 @@ async def predict_all_for_warehouse(
                     product_id=pid,
                     warehouse_id=warehouse_id,
                     horizon_days=horizon_days,
-                    as_of=datetime.utcnow(),  # naive → так же используем везде
+                    as_of=datetime.utcnow(),
                 )
                 if depletion:
                     results.append((pid, warehouse_id, depletion))
-                    print(f"✅ {pid}: истощение {depletion}")
+                    print(f"{pid}: истощение {depletion}")
                 else:
-                    print(f"⚠️ {pid}: не удалось рассчитать")
+                    print(f"{pid}: не удалось рассчитать")
             except Exception as e:
-                print(f"❌ Ошибка для {pid}: {e}")
+                print(f"Ошибка для {pid}: {e}")
 
         await save_predictions(session, results)
 
-
 async def save_predictions(session: AsyncSession, results: List[Tuple[str, str, datetime]]) -> None:
-    """
-    Сохраняем результаты в predict_at.
-    Политика очистки: удаляем записи старше 1 дня.
-    """
     if not results:
         print("Нет данных для сохранения")
         return
@@ -79,8 +67,7 @@ async def save_predictions(session: AsyncSession, results: List[Tuple[str, str, 
         )
 
     await session.commit()
-    print(f"💾 Сохранено {len(results)} записей в predict_at")
-
+    print(f"Сохранено {len(results)} записей в predict_at")
 
 def main():
     parser = argparse.ArgumentParser(description="Batch-предсказания истощения по складу")

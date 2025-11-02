@@ -24,7 +24,7 @@ class KeycloakService:
             verify=True
         )
 
-        # Инициализация KeycloakAdmin для управления пользователями
+        #Инициализация KeycloakAdmin для управления пользователями
         self.keycloak_admin = KeycloakAdmin(
             server_url=settings.KEYCLOAK_URL,
             username=settings.KEYCLOAK_ADMIN_USERNAME,
@@ -34,7 +34,6 @@ class KeycloakService:
         )
 
     async def create_user(self, email: str, password: str, first_name: str, last_name: str = "", username: str = None) -> str:
-        """Создать пользователя в Keycloak"""
         try:
             if username is None:
                 username = email
@@ -80,7 +79,6 @@ class KeycloakService:
             )
 
     async def delete_user(self, user_id: str) -> bool:
-        """Удалить пользователя из Keycloak"""
         try:
             logger.info(f"Deleting user from Keycloak: {user_id}")
             self.keycloak_admin.delete_user(user_id)
@@ -100,7 +98,6 @@ class KeycloakService:
             )
 
     async def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
-        """Найти пользователя в Keycloak по email"""
         try:
             users = self.keycloak_admin.get_users({"email": email})
             if users:
@@ -112,7 +109,6 @@ class KeycloakService:
 
     # Существующие методы остаются без изменений
     async def login(self, email: str, password: str) -> Dict[str, Any]:
-        """Аутентификация пользователя"""
         try:
             logger.info(f"Attempting login for: {email}")
 
@@ -159,7 +155,6 @@ class KeycloakService:
             )
 
     async def logout(self, refresh_token: str) -> bool:
-        """Выход из системы"""
         try:
             self.keycloak_openid.logout(refresh_token)
             logger.info("Logout successful")
@@ -172,7 +167,6 @@ class KeycloakService:
             return False
 
     async def get_user_info(self, token: str) -> Dict[str, Any]:
-        """Получение информации о пользователе"""
         try:
             user_info = self.keycloak_openid.userinfo(token)
             logger.debug(f"User info retrieved: {user_info.get('sub')}")
@@ -191,7 +185,6 @@ class KeycloakService:
             )
 
     async def refresh_token(self, refresh_token: str) -> Dict[str, Any]:
-        """Обновление токена"""
         try:
             token_data = self.keycloak_openid.refresh_token(refresh_token)
             logger.info("Token refreshed successfully")
@@ -210,7 +203,6 @@ class KeycloakService:
             )
 
     async def validate_token(self, token: str) -> bool:
-        """Проверка валидности токена"""
         try:
             result = self.keycloak_openid.introspect(token)
             is_active = result.get('active', False)
@@ -233,7 +225,6 @@ class KeycloakService:
             return False
 
     async def _exchange_token(self, subject_token: str) -> Dict[str, Any]:
-        """Обмен токена"""
         logger.info("Attempting token exchange")
 
         async with httpx.AsyncClient() as client:
@@ -274,10 +265,6 @@ class KeycloakService:
                 )
 
     async def get_identity_from_token(self, access_token: str) -> Dict[str, Any]:
-        """
-        Возвращает claims пользователя по access_token.
-        Бросает 401, если токен невалиден/просрочен.
-        """
         try:
             is_valid = await self.validate_token(access_token)
             if not is_valid:

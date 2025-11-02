@@ -2,7 +2,6 @@ from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from app.core.config import settings
 
-# Параметры пула (можно задать в .env)
 POOL_SIZE = int(getattr(settings, "DB_POOL_SIZE", 300))
 MAX_OVERFLOW = int(getattr(settings, "DB_MAX_OVERFLOW", 600))
 POOL_TIMEOUT = float(getattr(settings, "DB_POOL_TIMEOUT", 30.0))

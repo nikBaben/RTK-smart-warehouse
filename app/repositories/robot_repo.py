@@ -132,7 +132,7 @@ class RobotRepository:
             select(Robot.warehouse_id).where(Robot.id == robot_id)
         )
 
-    # 1) Узкая загрузка для тика эмулятора
+    #Узкая загрузка для тика эмулятора
     async def load_for_tick(self, robot_id: str) -> Optional[Robot]:
         res = await self.session.execute(
             select(Robot)
@@ -149,7 +149,7 @@ class RobotRepository:
         )
         return res.scalar_one_or_none()
 
-    # 2) Обновление координат и/или статуса (под открытой транзакцией)
+    #Обновление координат и/или статуса (под открытой транзакцией)
     async def update_xy_and_status(
         self,
         robot: Robot,
@@ -169,35 +169,35 @@ class RobotRepository:
 
         await self.session.flush()
 
-    # 3) Все id роботов по складу (без лишних join)
+    #Все id роботов по складу (без лишних join)
     async def list_ids_by_warehouse(self, warehouse_id: str) -> List[str]:
         res = await self.session.execute(
             select(Robot.id).where(Robot.warehouse_id == warehouse_id)
         )
         return list(res.scalars().all())
 
-    # 4) Средняя батарея по складу (для battery_events)
+    #Средняя батарея по складу (для battery_events)
     async def avg_battery_by_warehouse(self, warehouse_id: str) -> float:
         avg = await self.session.scalar(
             select(func.avg(Robot.battery_level)).where(Robot.warehouse_id == warehouse_id)
         )
         return float(avg or 0.0)
 
-    # 5) Список складов, где есть роботы (для стримеров)
+    #Список складов, где есть роботы (для стримеров)
     async def get_distinct_warehouse_ids(self) -> List[str]:
         rows = await self.session.execute(
             select(func.distinct(Robot.warehouse_id))
         )
         return [wid for (wid,) in rows.all() if wid]
 
-    # 6) Общее число роботов на складе (для active_robots стримера)
+    #Общее число роботов на складе (для active_robots стримера)
     async def total_robots(self, warehouse_id: str) -> int:
         val = await self.session.scalar(
             select(func.count(Robot.id)).where(Robot.warehouse_id == warehouse_id)
         )
         return int(val or 0)
 
-    # 7) Количество роботов по активным статусам (для active_robots стримера)
+    #Количество роботов по активным статусам (для active_robots стримера)
     async def count_active_by_status(
         self,
         warehouse_id: str,

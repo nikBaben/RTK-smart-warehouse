@@ -1,16 +1,6 @@
 from __future__ import annotations
-
-# =========================
-# 0) Boot flags (segfault hardening) — set BEFORE any sqlalchemy/greenlet import
-# =========================
 import os as _os
-_os.environ.setdefault("DISABLE_CEXTENSIONS", "1")
-_os.environ.setdefault("GREENLET_USE_GC", "0")
-EMIT_AUTOSEND_INIT = _os.environ.setdefault("EMIT_AUTOSEND_INIT", "1") == "1"
 
-# =========================
-# 1) Stdlib & typing
-# =========================
 import sys
 import pkgutil
 import asyncio
@@ -25,32 +15,23 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Set, Tuple
 from collections import deque
 
-# =========================
-# 2) DB & ORM
-# =========================
 from sqlalchemy import func, insert, select, update, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession, AsyncEngine
 from sqlalchemy.orm import load_only
 
 from app.db.session import async_session as AppSession
-from app.core.config import settings  # noqa: F401
+from app.core.config import settings                     # noqa: F401
 from app.models.warehouse import Warehouse
 from app.models.robot_history import RobotHistory
 from app.models.robot import Robot
 from app.models.product import Product
 from app.models.inventory_history import InventoryHistory
 
-# =========================
-# 3) Redis (async)
-# =========================
 try:
     from redis import asyncio as aioredis
 except Exception:  # redis optional
     aioredis = None  # type: ignore
 
-# =========================
-# 4) Event bus
-# =========================
 from app.events.bus import (
     get_bus_for_current_loop,
     close_bus_for_current_loop,
@@ -58,22 +39,20 @@ from app.events.bus import (
     COMMON_CH,
 )
 
-# =========================
-# 5) Config flags
-# =========================
+
+_os.environ.setdefault("DISABLE_CEXTENSIONS", "1")
+_os.environ.setdefault("GREENLET_USE_GC", "0")
+EMIT_AUTOSEND_INIT = _os.environ.setdefault("EMIT_AUTOSEND_INIT", "1") == "1"
 USE_REDIS_COORD = os.getenv("USE_REDIS_COORD", "1") == "1"   # единый robot.positions координацией
 USE_REDIS_CLAIMS = os.getenv("USE_REDIS_CLAIMS", "1") == "1" # глобальная бронь ячеек
 REDIS_URL = os.getenv("REDIS_URL", "redis://myapp-redis:6379/0")
 CLAIM_TTL_MS = int(os.getenv("CLAIM_TTL_MS", "120000"))
 COORDINATOR_SHARD_INDEX = int(os.getenv("COORDINATOR_SHARD_INDEX", "1"))
 
-# =========================
-# 6) Simulation constants
-# =========================
 # Размер склада: ширина (X) и высота (Y)
 FIELD_X = 25
 FIELD_Y = 49
-DOCK_X, DOCK_Y = 0, 0  # исторический дефолт, сейчас не используется напрямую
+DOCK_X, DOCK_Y = 0, 0 
 
 TICK_INTERVAL = float(os.getenv("ROBOT_TICK_INTERVAL", "0.5"))
 SCAN_DURATION = timedelta(seconds=int(os.getenv("SCAN_DURATION_SEC", "6")))
@@ -91,7 +70,7 @@ POSITIONS_MIN_INTERVAL_MS = int(os.getenv("POSITIONS_MIN_INTERVAL_MS", "75"))
 POSITIONS_KEEPALIVE_MS = int(os.getenv("POSITIONS_KEEPALIVE_MS", "1000"))
 KEEPALIVE_FULL = os.getenv("KEEPALIVE_FULL", "1") == "1"
 POSITIONS_DIFFS = os.getenv("POSITIONS_DIFFS", "0") == "1"
-# [FIX] правильная логика включения отправки позиций
+
 SEND_ROBOT_POSITION = os.getenv("SEND_ROBOT_POSITION", "1") == "0"
 
 IDLE_GOAL_LOOKUP_EVERY = int(os.getenv("IDLE_GOAL_LOOKUP_EVERY", "2"))
@@ -110,15 +89,15 @@ POSITIONS_MAX_INTERVAL_MS = int(os.getenv("POSITIONS_MAX_INTERVAL_MS", "2000"))
 
 LAST_SCANS_LIMIT = int(os.getenv("LAST_SCANS_LIMIT", "20"))
 
-# Настраиваемое окно выбора «самых старых» кандидатов (раньше было K=12)
+#Настраиваемое окно выбора «самых старых» кандидатов (раньше было K=12)
 STALE_PICK_TOPK = int(os.getenv("STALE_PICK_TOPK", "12"))
 
-# ─── Multi-dock support (fixed) ────────────────────────────────────────────────
+#Multi-dock
 # Жёстко заданные док-станции для склада 25x49 (Y допустим 0..48):
 # - центр: (12, 24)
 # - левый нижний: (0, 0)
 # - правый верх: (24, 48)
-DOCKS: List[Tuple[int, int]] = [(12, 24), (0, 0), (24, 48)]  # [FIX] вместо (24, 49)
+DOCKS: List[Tuple[int, int]] = [(0, 24), (0, 0), (0, 48)]  
 
 def nearest_dock(p: Tuple[int, int]) -> Tuple[int, int]:
     """Ближайшая док-станция до точки p (Манхэттен)."""
@@ -126,19 +105,13 @@ def nearest_dock(p: Tuple[int, int]) -> Tuple[int, int]:
 
 def is_at_any_dock(p: Tuple[int, int]) -> bool:
     return p in DOCKS
-# ────────────────────────────────────────────────────────────────────────────────
 
-# =========================
-# 7) Small hot-path constants
-# =========================
 ALPH = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 ALPH_IDX = {c: i + 1 for i, c in enumerate(ALPH)}
 EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 _BILLION = 10 ** 9
 
-# =========================
 # 8) Redis helpers
-# =========================
 _redis_pool = None
 
 def _r_key_lastscans(wid: str) -> str:
@@ -160,14 +133,14 @@ def _r_key_stale_zset(wid: str) -> str:
     # ZSET: member="x:y", score = Unix ts of min(last_scanned_at). Чем меньше — тем старее.
     return f"wh:{wid}:stale:z"
 
-# [FIX] Ключи персистентных дедлайнов сканирования
+#Ключи персистентных дедлайнов сканирования
 def _r_key_scan_started(wid: str, rid: str) -> str:
     return f"wh:{wid}:scan:{rid}:started_at"
 
 def _r_key_scan_until(wid: str, rid: str) -> str:
     return f"wh:{wid}:scan:{rid}:until"
 
-# [FIX] Guard-ключ для TTL предохранителя
+#Guard-ключ для TTL предохранителя
 def _r_key_scan_guard(wid: str, rid: str) -> str:
     return f"wh:{wid}:scan:{rid}:guard"
 
@@ -190,9 +163,7 @@ async def _close_redis():
             pass
         _redis_pool = None
 
-# =========================
-# 9) Local process memory / caches
-# =========================
+#Local process memory / caches
 _TARGETS: Dict[str, Tuple[int, int]] = {}
 _SCANNING_UNTIL: Dict[str, datetime] = {}
 _SCANNING_CELL: Dict[str, Tuple[int, int]] = {}
@@ -222,16 +193,14 @@ _SCAN_LOCKS: Dict[str, asyncio.Lock] = {}
 
 _LAST_SCANS_CACHE: Dict[str, deque] = {}
 
-# Во время сканирования: отметка последнего списания батареи
+#Во время сканирования: отметка последнего списания батареи
 _SCANNING_BATT_LAST_AT: Dict[str, datetime] = {}
 
-# ===== Shard
+#Shard
 _SHARD_IDX = 0
 _SHARD_COUNT = 1
 
-# =========================
-# 10) Utils (hot path friendly)
-# =========================
+#Utils (hot path friendly)
 def _scan_lock(rid: str) -> asyncio.Lock:
     lk = _SCAN_LOCKS.get(rid)
     if lk is None:
@@ -298,9 +267,7 @@ def _set_shard(idx: int, count: int) -> None:
     global _SHARD_IDX, _SHARD_COUNT
     _SHARD_IDX, _SHARD_COUNT = idx, max(1, count)
 
-# =========================
 # 11) Status logging & set_status (debounced)
-# =========================
 LAST_STATUS_CACHE: Dict[str, Tuple[str, datetime]] = {}
 
 async def _log_robot_status(session: AsyncSession, robot: Robot, status: str) -> None:
@@ -366,9 +333,7 @@ async def set_status(
     _update_wh_snapshot_from_robot(robot)
     LAST_STATUS_CACHE[robot.id] = (new_status, now)
 
-# =========================
 # 12) Emitting events
-# =========================
 async def _emit(evt: dict) -> None:
     t = evt.get("type", "")
     ch = ROBOT_CH if t.startswith("robot.position") or t in {
@@ -398,9 +363,7 @@ async def _emit_position_if_needed(robot: Robot) -> None:
         "ts": now.isoformat(),
     })
 
-# =========================
 # 13) Snapshot helpers (robots positions)
-# =========================
 async def _write_robot_to_redis(robot: Robot, item: dict) -> None:
     if not USE_REDIS_COORD:
         return
@@ -454,9 +417,7 @@ def _calc_diff_payload(wid: str, snap: Dict[str, dict]) -> Tuple[List[dict], Lis
 def _remember_last_sent_map(wid: str, snap: Dict[str, dict]) -> None:
     _WH_LAST_SENT_MAP[wid] = {rid: dict(item) for rid, item in snap.items()}
 
-# =========================
-# 14) Products: last scans cache emit (fast)
-# =========================
+#Products: last scans cache emit (fast)
 def _ih_row_to_payload(row: dict) -> dict:
     out = {
         "id": row["id"],
@@ -588,9 +549,7 @@ async def _emit_product_scans_init(warehouse_id: str) -> None:
         async with s.begin():
             await _emit_last_scans(s, warehouse_id, robot_id=None, reason="autosend_init")
 
-# =========================
-# 14a) Battery drain helpers (scan)
-# =========================
+#Battery drain helpers (scan)
 def _drain_scan_battery(robot: Robot, now: datetime) -> bool:
     """
     Уменьшает батарею во время сканирования пропорционально прошедшему времени.
@@ -614,9 +573,7 @@ def _drain_scan_battery(robot: Robot, now: datetime) -> bool:
     _SCANNING_BATT_LAST_AT[rid] = now
     return True
 
-# =========================
-# 15) Redis claims (global)
-# =========================
+#Redis claims (global)
 async def _claim_global(wid: str, cell: Tuple[int, int]) -> bool:
     if not USE_REDIS_CLAIMS:
         return True
@@ -627,8 +584,8 @@ async def _claim_global(wid: str, cell: Tuple[int, int]) -> bool:
     ok = await r.set(_r_key_claim(wid, x, y), "1", nx=True, px=CLAIM_TTL_MS)
     return bool(ok)
 
+#Продление TTL брони клетки, пока робот к ней едет.
 async def _renew_claim_global(wid: str, cell: Tuple[int, int]) -> None:
-    """Продление TTL брони клетки, пока робот к ней едет."""
     if not USE_REDIS_CLAIMS:
         return
     r = await _get_redis()
@@ -653,14 +610,10 @@ async def _free_claim_global(wid: str, cell: Tuple[int, int]) -> None:
     finally:
         _free_claim_local(wid, cell)
 
-# =========================
-# 16) Eligibility / staleness sources (FAST)
-# =========================
+#Eligibility / staleness sources (FAST)
 async def _seed_staleness_zset(session: AsyncSession, wid: str) -> None:
-    """
-    Инициализируем ZSET (по складу) значениями min(last_scanned_at) по клеткам.
-    Делаем это один раз при прогреве — дальше обновляем инкрементально.
-    """
+    #Инициализируем ZSET (по складу) значениями min(last_scanned_at) по клеткам.
+    #Делаем это один раз при прогреве — дальше обновляем инкрементально.
     if aioredis is None:
         return
     r = await _get_redis()
@@ -693,20 +646,19 @@ async def _seed_staleness_zset(session: AsyncSession, wid: str) -> None:
                 pipe = r.pipeline()
     await pipe.execute()
 
+#После скана клетки обновляем её «возраст» в ZSET (быстро, O(log N)).
 async def _update_staleness_cell(wid: str, x: int, y: int, ts: float) -> None:
-    """После скана клетки обновляем её «возраст» в ZSET (быстро, O(log N))."""
     if aioredis is None:
         return
     r = await _get_redis()
     await r.zadd(_r_key_stale_zset(wid), {f"{x}:{y}": ts})
 
+#Берём из Redis ZSET самые «старые» клетки (минимальный score).
 async def _zrange_oldest_cells(wid: str, limit: int = 256) -> List[Tuple[int, int, float]]:
-    """Берём из Redis ZSET самые «старые» клетки (минимальный score)."""
     if aioredis is None:
         return []
     r = await _get_redis()
     zkey = _r_key_stale_zset(wid)
-    # ZRANGE ... WITHSCORES (decode_responses=True)
     data = await r.zrange(zkey, 0, max(0, limit - 1), withscores=True)
     out: List[Tuple[int, int, float]] = []
     for member, score in data:
@@ -719,13 +671,11 @@ async def _zrange_oldest_cells(wid: str, limit: int = 256) -> List[Tuple[int, in
             continue
     return out
 
+#  Быстрый фильтр «есть ли в клетке eligible-товары» одной SQL.
+#  Ограничиваем список до разумного размера (на входе уже «старые»).
 async def _filter_cells_eligible(
     session: AsyncSession, wid: str, cells: List[Tuple[int, int]], cutoff: datetime
 ) -> List[Tuple[int, int]]:
-    """
-    Быстрый фильтр «есть ли в клетке eligible-товары» одной SQL.
-    Ограничиваем список до разумного размера (на входе уже «старые»).
-    """
     if not cells:
         return []
     # Преобразуем в (row, shelf_str)
@@ -795,9 +745,7 @@ async def _eligible_products_in_cell(
     )
     return list(res.scalars().all())
 
-# =========================
-# 17) Scanning lifecycle (optimized + persisted deadlines + guard TTL)
-# =========================
+#Scanning lifecycle (optimized + persisted deadlines + guard TTL)
 async def _start_scan(session: AsyncSession, robot: Robot, x: int, y: int) -> None:
     await set_status(session, robot, "scanning")
     _SCANNING_CELL[robot.id] = (x, y)
@@ -808,7 +756,7 @@ async def _start_scan(session: AsyncSession, robot: Robot, x: int, y: int) -> No
     _SCANNING_BATT_LAST_AT[robot.id] = now
     _update_wh_snapshot_from_robot(robot)
 
-    # [FIX] сохраняем дедлайны и guard в Redis (персистентно)
+    #сохраняем дедлайны и guard в Redis (персистентно)
     if USE_REDIS_COORD or USE_REDIS_CLAIMS:
         try:
             r = await _get_redis()
@@ -826,7 +774,7 @@ async def _finish_scan(session: AsyncSession, robot: Robot) -> None:
     _SCANNING_STARTED_AT.pop(robot.id, None)
     _SCANNING_BATT_LAST_AT.pop(robot.id, None)
 
-    # [FIX] чистим персистентные ключи дедлайна и guard
+    #чистим персистентные ключи дедлайна и guard
     if USE_REDIS_COORD or USE_REDIS_CLAIMS:
         try:
             r = await _get_redis()
@@ -841,7 +789,7 @@ async def _finish_scan(session: AsyncSession, robot: Robot) -> None:
     if shelf == "0":
         await _free_claim_global(robot.warehouse_id, (rx, ry))
         await set_status(session, robot, "idle")
-        # [FIX] sync запись снапшота в Redis, чтобы UI увидел "idle" сразу
+        #sync запись снапшота в Redis, чтобы UI увидел "idle" сразу
         if USE_REDIS_COORD:
             try:
                 item = (_wh_snapshot(robot.warehouse_id).get(robot.id) or {})
@@ -875,7 +823,7 @@ async def _finish_scan(session: AsyncSession, robot: Robot) -> None:
         await _maybe_emit_positions_snapshot_inmem(robot.warehouse_id)
         await _emit_position_if_needed(robot)
         await _emit_last_scans(session, robot.warehouse_id, robot.id, reason="under_cooldown")
-        # Обновляем «давность»
+        #Обновляем «давность»
         await _update_staleness_cell(robot.warehouse_id, rx, ry, now_dt.timestamp())
         return
 
@@ -924,13 +872,13 @@ async def _finish_scan(session: AsyncSession, robot: Robot) -> None:
     scans20 = await _get_last_scans(robot.warehouse_id)
     await _emit_last_scans(session, robot.warehouse_id, robot.id, scans_override=scans20)
 
-    # обновляем ZSET «давности»
+    #обновляем ZSET «давности»
     await _update_staleness_cell(robot.warehouse_id, rx, ry, now_dt.timestamp())
 
     await _free_claim_global(robot.warehouse_id, (rx, ry))
     await set_status(session, robot, "idle")
 
-    # [FIX] sync обновление в Redis-координаторе
+    #sync обновление в Redis-координаторе
     if USE_REDIS_COORD:
         try:
             item = (_wh_snapshot(robot.warehouse_id).get(robot.id) or {})
@@ -982,9 +930,7 @@ async def _safe_finish_scan(session: AsyncSession, robot: Robot) -> None:
             _SCANNING_FINISHING.pop(robot.id, None)
             _SCANNING_BATT_LAST_AT.pop(robot.id, None)
 
-# =========================
-# 18) Eligibility quick check
-# =========================
+#Eligibility quick check
 async def _cell_still_eligible(session: AsyncSession, wid: str, cell: Tuple[int, int], cutoff: datetime) -> bool:
     x, y = cell
     shelf = shelf_num_to_str(x)
@@ -998,9 +944,7 @@ async def _cell_still_eligible(session: AsyncSession, wid: str, cell: Tuple[int,
     )
     return row.first() is not None
 
-# =========================
-# 19) Per-tick cache
-# =========================
+#Per-tick cache
 def _next_tick_id(wid: str) -> int:
     _WH_TICK_COUNTER[wid] = _WH_TICK_COUNTER.get(wid, 0) + 1
     return _WH_TICK_COUNTER[wid]
@@ -1019,9 +963,7 @@ def _get_tick_cache(wid: str, tick_id: int) -> dict:
         }
     return c
 
-# =========================
-# 20) Robot tick (optimized + deadline restore + guard + battery 0)
-# =========================
+#Robot tick (optimized + deadline restore + guard + battery 0)
 async def _robot_tick(session: AsyncSession, robot_id: str, tick_id: Optional[int] = None) -> None:
     # Single small select — keep hot fields only
     rres = await session.execute(
@@ -1044,9 +986,8 @@ async def _robot_tick(session: AsyncSession, robot_id: str, tick_id: Optional[in
     cutoff = now_dt - RESCAN_COOLDOWN
     cache["cutoff"] = cutoff
 
-    # 1) if scanning — finish strictly on deadline here (not only fast-loop)
     if (robot.status or "").lower() == "scanning":
-        # [FIX] Инициализация дедлайна: сначала пробуем восстановить из Redis
+        #Инициализация дедлайна: сначала пробуем восстановить из Redis
         start_at = _SCANNING_STARTED_AT.get(robot.id)
         until = _SCANNING_UNTIL.get(robot.id)
 
@@ -1071,14 +1012,14 @@ async def _robot_tick(session: AsyncSession, robot_id: str, tick_id: Optional[in
         _SCANNING_UNTIL[robot.id] = until
         _SCANNING_CELL.setdefault(robot.id, robot_xy(robot))
 
-        # Списываем батарею во время сканирования и обновляем снапшот
+        #Списываем батарею во время сканирования и обновляем снапшот
         if _drain_scan_battery(robot, now_dt):
             await session.flush()
             _update_wh_snapshot_from_robot(robot)
             await _maybe_emit_positions_snapshot_inmem(wid)
             await _emit_position_if_needed(robot)
 
-        # [FIX] аварийный выход при 0% батареи во время скана
+        #аварийный выход при 0% батареи во время скана
         if float(robot.battery_level or 0.0) <= 0.0:
             await _safe_finish_scan(session, robot)
             await set_status(session, robot, "charging")
@@ -1089,7 +1030,7 @@ async def _robot_tick(session: AsyncSession, robot_id: str, tick_id: Optional[in
             await _emit_position_if_needed(robot)
             return
 
-        # [FIX] Жёсткая отсечка: если идёт заметно дольше нормы (2x)
+        # Жёсткая отсечка: если идёт заметно дольше нормы (2x)
         if start_at and (now_dt - start_at) > (SCAN_DURATION * 2):
             # print(f"[scan] watchdog rid={robot.id} reason=over_age now={now_dt.isoformat()} start={start_at} until={until}", flush=True)
             await _safe_finish_scan(session, robot)
@@ -1099,14 +1040,13 @@ async def _robot_tick(session: AsyncSession, robot_id: str, tick_id: Optional[in
             await _emit_position_if_needed(robot)
             return
 
-        # [FIX] Fail-safe через guard-ключ (TTL истёк — завершаем немедленно)
+        #Fail-safe через guard-ключ (TTL истёк — завершаем немедленно)
         if USE_REDIS_COORD or USE_REDIS_CLAIMS:
             try:
                 r = await _get_redis()
                 if r is not None:
                     exists = await r.exists(_r_key_scan_guard(wid, robot.id))
                     if not exists:
-                        # print(f"[scan] watchdog rid={robot.id} reason=guard_expired now={now_dt.isoformat()}", flush=True)
                         await _safe_finish_scan(session, robot)
                         await session.flush()
                         _update_wh_snapshot_from_robot(robot)
@@ -1126,7 +1066,7 @@ async def _robot_tick(session: AsyncSession, robot_id: str, tick_id: Optional[in
             await _emit_position_if_needed(robot)
         return
 
-    # 2) charging
+    #charging
     if (robot.status or "").lower() == "charging":
         inc = 100.0 * (TICK_INTERVAL / CHARGE_DURATION.total_seconds())
         robot.battery_level = min(100.0, float(robot.battery_level or 0.0) + inc)
@@ -1138,22 +1078,20 @@ async def _robot_tick(session: AsyncSession, robot_id: str, tick_id: Optional[in
         await _maybe_emit_positions_snapshot_inmem(wid)
         return
 
-    # 3) goal selection
+    #goal selection
     cur = robot_xy(robot)
     goal = _TARGETS.get(robot.id)
     low_batt = float(robot.battery_level or 0.0) <= LOW_BATTERY_THRESHOLD
 
-    # К доку едем только если цели нет
+    #К доку едем только если цели нет
     if low_batt and goal is None:
         goal = nearest_dock(cur)
     else:
         if goal is None and (tid % IDLE_GOAL_LOOKUP_EVERY == 0):
-            # precompute per-tick goals queue ONCE per warehouse
             if cache["goals_queue"] is None:
                 # 1) Try Redis ZSET oldest cells
                 oldest = await _zrange_oldest_cells(wid, limit=256) or []
                 oldest_cells = [(x, y) for (x, y, _score) in oldest]
-                # Filter by cutoff in ONE SQL (cap to 64 for speed)
                 if oldest_cells:
                     qcells = oldest_cells[:64]
                     eligible = await _filter_cells_eligible(session, wid, qcells, cutoff)
@@ -1187,14 +1125,13 @@ async def _robot_tick(session: AsyncSession, robot_id: str, tick_id: Optional[in
                                 _TARGETS[robot.id] = best
                                 goal = best
 
-    # 4) Move step
+    #Move step
     cur_x, cur_y = cur
     if goal:
         tx, ty = goal
         nx = cur_x + (1 if tx > cur_x else (-1 if tx < cur_x else 0))
         ny = cur_y if nx != tx else (cur_y + (1 if ty > cur_y else (-1 if ty < cur_y else 0)))
     else:
-        # random small drift but avoid X=0
         cand = [(cur_x + 1, cur_y), (cur_x - 1, cur_y), (cur_x, cur_y + 1), (cur_x, cur_y - 1)]
         valid = [(x, y) for (x, y) in cand if 1 <= x <= FIELD_X and 0 <= y < FIELD_Y]
         if valid:
@@ -1249,9 +1186,7 @@ async def _robot_tick(session: AsyncSession, robot_id: str, tick_id: Optional[in
         _update_wh_snapshot_from_robot(robot)
         await _maybe_emit_positions_snapshot_inmem(wid)
 
-# =========================
 # 21) Positions broadcaster (unchanged logic, minor micro-opts)
-# =========================
 async def _maybe_emit_positions_snapshot_inmem(wid: str) -> None:
     if USE_REDIS_COORD:
         return
@@ -1502,9 +1437,7 @@ async def _stop_positions_broadcaster(wid: str) -> None:
         except Exception:
             pass
 
-# =========================
-# 22) Warmup / sync snapshot + seed staleness ZSET
-# =========================
+#Warmup / sync snapshot + seed staleness ZSET
 async def _warmup_or_sync_snapshot(session: AsyncSession, wid: str, robot_ids: Optional[List[str]] = None) -> None:
     if robot_ids is None:
         r = await session.execute(select(Robot.id).where(Robot.warehouse_id == wid))
@@ -1549,9 +1482,7 @@ async def _warmup_or_sync_snapshot(session: AsyncSession, wid: str, robot_ids: O
     # Однократная инициализация ZSET «давности»
     await _seed_staleness_zset(session, wid)
 
-# =========================
 # 23) Fast scan loop (deadline restore + guard + watchdog)
-# =========================
 async def _fast_scan_loop(wid: str) -> None:
     interval = max(5, FAST_SCAN_INTERVAL_MS) / 1000.0
     try:
@@ -1566,7 +1497,7 @@ async def _fast_scan_loop(wid: str) -> None:
             for rid in scan_rids:
                 if _SCANNING_FINISHING.get(rid):
                     continue
-                # [FIX] корректно инициализируем/восстанавливаем дедлайны
+                #корректно инициализируем/восстанавливаем дедлайны
                 if rid not in _SCANNING_UNTIL or rid not in _SCANNING_STARTED_AT:
                     start_at = None
                     until = None
@@ -1593,7 +1524,7 @@ async def _fast_scan_loop(wid: str) -> None:
                 start_at = _SCANNING_STARTED_AT.get(rid)
                 until = _SCANNING_UNTIL.get(rid)
 
-                # [FIX] guard TTL: если истёк — форс-финиш
+                #guard TTL: если истёк — форс-финиш
                 if USE_REDIS_COORD or USE_REDIS_CLAIMS:
                     try:
                         r = await _get_redis()
@@ -1618,7 +1549,7 @@ async def _fast_scan_loop(wid: str) -> None:
                     except Exception:
                         pass
 
-                # [FIX] жёсткая отсечка по «возрасту» > 2x
+                #жёсткая отсечка по «возрасту» > 2x
                 if start_at and (now - start_at) > (SCAN_DURATION * 2):
                     async with AppSession() as s:
                         async with s.begin():
@@ -1677,9 +1608,7 @@ async def _stop_fast_scan_task(wid: str) -> None:
         except Exception:
             pass
 
-# =========================
-# 24) Scheduler: robot selection window
-# =========================
+#Scheduler: robot selection window
 def _select_robot_batch(wid: str, robot_ids: List[str]) -> List[str]:
     if not robot_ids:
         return []
@@ -1701,9 +1630,7 @@ def _select_robot_batch(wid: str, robot_ids: List[str]) -> List[str]:
     _WH_ROBOT_OFFSET[wid] = (off + win) % n
     return scanning + batch
 
-# =========================
 # 25) Watcher loops
-# =========================
 async def _dispose_async_engine_if_any():
     try:
         from app.db.session import async_engine as _engine
@@ -1826,9 +1753,7 @@ async def run_robot_watcher() -> None:
         await _close_redis()
         print("✅ watcher stopped", flush=True)
 
-# =========================
 # 26) Multiprocessing watcher (sharded)
-# =========================
 MP_START_METHOD = os.getenv("MP_START_METHOD", "spawn")
 MAX_WAREHOUSE_PROCS = int(os.getenv("MAX_WAREHOUSE_PROCS", "0"))
 ROBOTS_PER_PROC = int(os.getenv("ROBOTS_PER_PROC", "3"))

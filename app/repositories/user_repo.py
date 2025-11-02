@@ -43,7 +43,6 @@ class UserRepository:
         return user
     
     async def update(self, user_id: int, user_update: UserUpdate) -> Optional[User]:
-        """Обновление данных пользователя"""
         # Сначала проверяем существование пользователя
         user = await self.get_by_id(user_id)
         if not user:

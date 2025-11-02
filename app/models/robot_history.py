@@ -1,4 +1,3 @@
-# app/models/robot_history.py
 from __future__ import annotations
 
 from datetime import datetime
@@ -12,7 +11,7 @@ class RobotHistory(Base):
 
     id: Mapped[str] = mapped_column(String(50), primary_key=True)
 
-    robot_id: Mapped[str | None] = mapped_column(  # nullable: сохраняем историю после удаления робота
+    robot_id: Mapped[str | None] = mapped_column(  
         String(50),
         ForeignKey("robots.id", ondelete="SET NULL", onupdate="CASCADE"),
         nullable=True,
@@ -24,7 +23,7 @@ class RobotHistory(Base):
         nullable=False
     )
 
-    status: Mapped[str] = mapped_column(String(50), nullable=False)  # idle/charging/scanning/...
+    status: Mapped[str] = mapped_column(String(50), nullable=False) 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
 
     robot = relationship("Robot", back_populates="robot_history", lazy="joined")

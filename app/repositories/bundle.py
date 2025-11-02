@@ -1,4 +1,3 @@
-# app/repositories/bundle.py
 from __future__ import annotations
 import contextlib
 from contextlib import asynccontextmanager
@@ -40,10 +39,6 @@ __all__ = [
 
 # Вспомогательная фабрика для сборки бандла из конкретной AsyncSession
 def _make_repo_bundle(session: AsyncSession) -> RepoBundle:
-    """
-    Собирает RepoBundle на одной и той же AsyncSession.
-    Все репозитории разделяют единый юнит работы (транзакцию).
-    """
     robot: RobotRepositoryProto = RobotRepository(session)
     robot_history: RobotHistoryRepositoryProto = RobotHistoryRepository(session)
     product: ProductRepositoryProto = ProductRepository(session)
@@ -66,35 +61,20 @@ async def repo_bundle_provider(*, commit_on_exit: bool = True) -> AsyncIterator[
             async with session.begin():
                 bundle = _make_repo_bundle(session)
                 yield bundle
-            # begin() сам делает COMMIT, когда блок завершился без исключений.
-            # Доп. флаг commit_on_exit оставлен для совместимости — если False,
-            # мы делаем откат после .begin(), чтобы не фиксировать изменения.
             if not commit_on_exit:
                 await session.rollback()
         except Exception:
-            # Если исключение внутри блока .begin(), транзакция уже откатится;
-            # здесь делаем дополнительный rollback на всякий случай.
             with contextlib.suppress(Exception):  # type: ignore[name-defined]
                 await session.rollback()
             raise
 
-
-# ──────────────────────────────────────────────────────────────────────────────
 # Провайдер из внешней (уже созданной) AsyncSession — когда сессия управляется снаружи
-# ──────────────────────────────────────────────────────────────────────────────
 @asynccontextmanager
 async def repo_bundle_provider_from_session(
     session: AsyncSession,
     *,
     manage_transaction: bool = False,
 ) -> AsyncIterator[RepoBundle]:
-    """
-    Оборачивает уже созданную сессию в RepoBundle.
-
-    manage_transaction:
-        - False (по умолч.) — транзакцией управляет вызывающая сторона.
-        - True  — внутри откроем session.begin(), коммит/роллбек на нашей стороне.
-    """
     if not manage_transaction:
         # Без управления транзакцией: просто отдаём бандл и выходим.
         bundle = _make_repo_bundle(session)
@@ -105,40 +85,32 @@ async def repo_bundle_provider_from_session(
         async with session.begin():
             bundle = _make_repo_bundle(session)
             yield bundle
-        # session.begin() сам сделает COMMIT при успешном выполнении блока.
     except Exception:
         with contextlib.suppress(Exception):  # type: ignore[name-defined]
             await session.rollback()
         raise
 
-
-# ──────────────────────────────────────────────────────────────────────────────
 # Узкие провайдеры под отдельные репозитории (удобно для ws/stream кода)
 # Все провайдеры открывают единую транзакцию и коммитят на выходе.
-# ──────────────────────────────────────────────────────────────────────────────
 @asynccontextmanager
 async def product_repo_provider(*, commit_on_exit: bool = True) -> AsyncIterator[ProductRepositoryProto]:
     async with repo_bundle_provider(commit_on_exit=commit_on_exit) as repos:
         yield repos.product
-
 
 @asynccontextmanager
 async def robot_history_repo_provider(*, commit_on_exit: bool = True) -> AsyncIterator[RobotHistoryRepositoryProto]:
     async with repo_bundle_provider(commit_on_exit=commit_on_exit) as repos:
         yield repos.robot_history
 
-
 @asynccontextmanager
 async def inventory_history_repo_provider(*, commit_on_exit: bool = True) -> AsyncIterator[InventoryHistoryRepositoryProto]:
     async with repo_bundle_provider(commit_on_exit=commit_on_exit) as repos:
         yield repos.inv_hist
 
-
 @asynccontextmanager
 async def robot_repo_provider(*, commit_on_exit: bool = True) -> AsyncIterator[RobotRepositoryProto]:
     async with repo_bundle_provider(commit_on_exit=commit_on_exit) as repos:
         yield repos.robot
-
 
 @asynccontextmanager
 async def warehouse_repo_provider(*, commit_on_exit: bool = True) -> AsyncIterator[WarehouseRepositoryProto]:

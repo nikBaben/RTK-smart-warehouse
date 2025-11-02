@@ -9,7 +9,6 @@ from app.schemas.predict import PredictResponse
 
 router = APIRouter(prefix="/ml", tags=["ml"])
 
-#Получение и обновление предсказания для одного товара
 @router.post(
     "/depletion",
     summary="Исчерпание для одного товара - Прогноз ИИ ",
@@ -30,7 +29,6 @@ async def rebuild_and_upsert_depletion(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка расчёта/сохранения прогноза: {e}")
 
-#Endpoint для получения 5 критичных состояний товаров по предсказанию.
 @router.get(
     "/soon_depleted",
     response_model=list[PredictResponse],

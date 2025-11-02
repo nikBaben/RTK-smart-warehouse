@@ -4,7 +4,7 @@ from typing import Optional
 from sqlalchemy import String, Integer, DateTime, ForeignKey, func, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
-from app.models.enums import DeliveryStatus  # у тебя уже есть
+from app.models.enums import DeliveryStatus 
 
 class Delivery(Base):
     __tablename__ = "deliveries"

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, Body, Response
+from fastapi import APIRouter, Depends, status, Body, Response, File, UploadFile, HTTPException
 from app.schemas.inventory_history import InventoryHistoryRead, InventoryHistoryFilters, FilteredInventoryHistoryResponse, InventoryHistoryExport, ChartResponse
 from app.service.inventory_history_service import InventoryHistoryService
 from app.api.deps import get_inventory_history_service  
@@ -37,10 +37,6 @@ async def get_filtered_inventory_history(
     filters: InventoryHistoryFilters = Body(...),
     service: InventoryHistoryService = Depends(get_inventory_history_service),
 ):
-    """
-    Единственный endpoint для получения отфильтрованных данных
-    """
-    # Конвертируем фильтры в dict и убираем None значения
     filters_dict = {
         k: v for k, v in filters.dict().items() 
         if v is not None and v != ""
@@ -103,7 +99,6 @@ async def inventory_history_export_to_xl(
         }
     )
 
-
 @router.post(
     "/inventory_history_export_to_pdf/{warehouse_id}",
     status_code=status.HTTP_200_OK,
@@ -126,7 +121,6 @@ async def inventory_history_export_to_pdf(
 
     file_size = len(pdf.getvalue())
     
-    # Создаем имя файла с timestamp
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"inventory_{warehouse_id}_{timestamp}.pdf"
 
@@ -176,7 +170,6 @@ async def inventory_history_unique_zones(
 ) -> List[str]:
     return await service.inventory_history_unique_zones(warehouse_id=warehouse_id)
 
-
 @router.get(
     "/inventory_history_unique_categories/{warehouse_id}",
     response_model=List[str],
@@ -188,3 +181,25 @@ async def inventory_history_unique_categories(
     service: InventoryHistoryService = Depends(get_inventory_history_service),
 ) -> List[str]:
     return await service.inventory_history_unique_categories(warehouse_id=warehouse_id)
+
+@router.post(
+    "/import_inventory_from_csv/{warehouse_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Получить уникальные категории товаров на складе",
+)
+async def import_inventory_from_csv(
+    warehouse_id: str,
+    csv_file: UploadFile = File(..., description="CSV файл с данными инвентаризации"),
+    service: InventoryHistoryService = Depends(get_inventory_history_service),
+) -> None:
+    
+    if not csv_file.filename.lower().endswith('.csv'):
+        raise HTTPException(400, "Файл должен быть в формате CSV")
+    
+    try:
+        content = await csv_file.read()
+        csv_data = content.decode('utf-8-sig')  
+    except Exception as e:
+        raise HTTPException(400, f"Ошибка чтения файла: {str(e)}")
+
+    await service.import_inventory_from_csv(warehouse_id=warehouse_id, csv_data=csv_data)

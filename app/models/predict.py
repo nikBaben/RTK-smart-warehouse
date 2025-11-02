@@ -4,16 +4,10 @@ from app.db.base import Base
 
 
 class PredictAt(Base):
-    """
-    Таблица прогнозов истощения запасов (результаты ML-предсказаний).
-    Содержит дату предполагаемого исчерпания, доверительные интервалы и вероятность.
-    """
-
     __tablename__ = "predict_at"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
-    # Идентификаторы
     product_id = Column(String, nullable=False, index=True)
     product_name = Column(String, nullable=True)
     warehouse_id = Column(String, nullable=False, index=True)

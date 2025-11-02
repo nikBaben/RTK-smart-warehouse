@@ -1,4 +1,3 @@
-# app/services/robot_history_writer.py
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.robot import Robot

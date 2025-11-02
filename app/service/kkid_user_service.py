@@ -6,7 +6,6 @@ from app.models.user import User
 from typing import Optional
 
 async def get_user_by_kkid(session: AsyncSession, kkid: str) -> Optional[User]:
-    """Получить пользователя по Keycloak ID"""
     result = await session.execute(
         select(KeycloakUser)
         .options(selectinload(KeycloakUser.user))
@@ -16,7 +15,6 @@ async def get_user_by_kkid(session: AsyncSession, kkid: str) -> Optional[User]:
     return kk_user.user if kk_user else None
 
 async def create_kkid_user(session: AsyncSession, kkid: str, user_id: int) -> KeycloakUser:
-    """Создать связь между Keycloak ID и User ID"""
     kk_user = KeycloakUser(kkid=kkid, user_id=user_id)
     session.add(kk_user)
     await session.commit()
@@ -24,14 +22,12 @@ async def create_kkid_user(session: AsyncSession, kkid: str, user_id: int) -> Ke
     return kk_user
 
 async def get_kkid_by_user_id(session: AsyncSession, user_id: int) -> Optional[str]:
-    """Получить Keycloak ID по User ID"""
     result = await session.execute(
         select(KeycloakUser.kkid).where(KeycloakUser.user_id == user_id)
     )
     return result.scalar_one_or_none()
 
 async def delete_kkid_user(session: AsyncSession, kkid: str) -> bool:
-    """Удалить связь по Keycloak ID"""
     result = await session.execute(
         select(KeycloakUser).where(KeycloakUser.kkid == kkid)
     )

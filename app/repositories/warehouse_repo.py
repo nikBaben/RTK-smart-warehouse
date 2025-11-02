@@ -57,14 +57,14 @@ class WarehouseRepository:
         address: str | None = None,
         max_products: int | None = None
     ) -> Warehouse:
-    # Находим склад по id
+    #Находим склад по id
         warehouse = await self.session.scalar(
             select(Warehouse).where(Warehouse.id == id)
         )
         if not warehouse:
             raise ValueError(f"Склад с id '{id}' не найден.")
 
-        # Проверяем, если нужно изменить имя — чтобы не было дублей
+        #Проверяем, если нужно изменить имя — чтобы не было дублей
         if name and name != warehouse.name:
             existing_warehouse = await self.session.scalar(
                 select(Warehouse).where(Warehouse.name == name)
@@ -73,7 +73,7 @@ class WarehouseRepository:
                 raise ValueError(f"Склад с именем '{name}' уже существует.")
             warehouse.name = name
 
-        # Обновляем остальные поля
+        #Обновляем остальные поля
         if address is not None:
             warehouse.address = address
 
@@ -113,7 +113,7 @@ class WarehouseRepository:
             noload(Warehouse.robots),
             noload(Warehouse.inventory_history),
         )
-        .order_by(Warehouse.id)            # детерминированность + индекс по PK
+        .order_by(Warehouse.id)            
         .limit(limit)
         .offset(offset)
         )
@@ -124,7 +124,7 @@ class WarehouseRepository:
         stmt = select(Warehouse.id)
         return (await self.session.execute(stmt)).scalars().all()
     
-    #1) Склады, где есть хотя бы один робот (для шардера/раннера)
+    #Склады, где есть хотя бы один робот (для шардера/раннера)
     async def ids_having_robots(self) -> List[str]:
         rows = await self.session.execute(
             select(Warehouse.id)

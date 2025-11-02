@@ -15,9 +15,7 @@ from app.models.warehouse import Warehouse
 
 router = APIRouter(prefix="/scheduled_deliveries", tags=["deliveries"])
 
-
-# ---------- Schemas ----------
-
+#Pydantic схемы
 class ScheduledDeliveryIn(BaseModel):
     id: str = Field(..., min_length=1, max_length=50, description="Уникальный ID плана")
     product_id: str = Field(..., min_length=1, max_length=50)
@@ -30,15 +28,10 @@ class ScheduledDeliveryIn(BaseModel):
     @field_validator("scheduled_at")
     @classmethod
     def ensure_future(cls, v: datetime):
-        # допускаем прошлое, если очень нужно — снимай этот чек
         now = datetime.now(timezone.utc)
         if v.tzinfo is None:
-            # treat naive as UTC (или выбери свою политику)
             v = v.replace(tzinfo=timezone.utc)
-        # if v < now:
-        #     raise ValueError("scheduled_at должен быть в будущем")
         return v
-
 
 class ScheduledDeliveryOut(BaseModel):
     id: str
@@ -50,17 +43,9 @@ class ScheduledDeliveryOut(BaseModel):
     supplier: Optional[str] = None
     notes: Optional[str] = None
 
-
-# ---------- Endpoint ----------
-
 @router.post("", response_model=ScheduledDeliveryOut, status_code=201)
 async def create_scheduled_delivery(payload: ScheduledDeliveryIn):
-    """
-    Создать запись в `scheduled_deliveries` со статусом `scheduled`.
-    Идемпотентность: при повторном POST с тем же id возвращаем существующую запись.
-    """
     async with async_session() as session:
-        # FK-проверки (понятная ошибка вместо 500 от БД)
         prod_exists = await session.scalar(
             select(Product.id).where(Product.id == payload.product_id)
         )
@@ -73,7 +58,6 @@ async def create_scheduled_delivery(payload: ScheduledDeliveryIn):
         if not wh_exists:
             raise HTTPException(status_code=404, detail="Warehouse not found")
 
-        # идемпотентность по ID
         existing = await session.get(ScheduledDelivery, payload.id)
         if existing:
             return ScheduledDeliveryOut(
@@ -87,7 +71,6 @@ async def create_scheduled_delivery(payload: ScheduledDeliveryIn):
                 notes=existing.notes,
             )
 
-        # создаём новую запись
         obj = ScheduledDelivery(
             id=payload.id,
             product_id=payload.product_id,
@@ -104,7 +87,6 @@ async def create_scheduled_delivery(payload: ScheduledDeliveryIn):
             await session.commit()
         except IntegrityError as e:
             await session.rollback()
-            # на случай гонки за тот же id
             existing = await session.get(ScheduledDelivery, payload.id)
             if existing:
                 return ScheduledDeliveryOut(

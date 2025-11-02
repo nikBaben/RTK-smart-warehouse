@@ -7,7 +7,6 @@ from fastapi import Depends, HTTPException, status
 import logging
 from app.service.predict_service import PredictService
 
-# Repositories
 from app.repositories.robot_repo import RobotRepository
 from app.repositories.product_repo import ProductRepository
 from app.repositories.warehouse_repo import WarehouseRepository
@@ -18,8 +17,12 @@ from app.repositories.alarm_repo import AlarmRepository
 from app.repositories.operations_repo import OperationsRepository
 from app.repositories.reports_repo import ReportsRepository
 from app.repositories.robot_history_repo import RobotHistoryRepository
+from app.repositories.delivery_repo import DeliveryRepository
+from app.repositories.delivery_items_repo import DeliveryItemsRepository
+from app.repositories.shipment_repo import ShipmentRepository
+from app.repositories.shipment_items_repo import ShipmentItemsRepository
+from app.repositories.predict_repo import PredictRepository
 
-# Services
 from app.service.robot_service import RobotService
 from app.service.product_service import ProductService
 from app.service.warehouse_service import WarehouseService 
@@ -30,15 +33,14 @@ from app.service.inventory_history_service import InventoryHistoryService
 from app.service.alarm_service import AlarmService
 from app.service.operations_service import OperationsService
 from app.service.reports_service import ReportsService
+from app.service.delivery_service import DeliveryService
+from app.service.shipment_service import ShipmentService
 
-# DB
 from app.db.session import get_session
-from app.repositories.predict_repo import PredictRepository
-
-
 
 logger = logging.getLogger(__name__)
 security = HTTPBearer()
+
 
 #Repositories
 def get_robot_repo(db: AsyncSession = Depends(get_session)) -> RobotRepository:
@@ -61,6 +63,30 @@ def get_kkid_user_repo(db: AsyncSession = Depends(get_session)) -> KkidUserRepos
 
 def get_alarm_repo(db: AsyncSession = Depends(get_session)) -> AlarmRepository:
     return AlarmRepository(db)
+
+async def get_delivery_repo(session: AsyncSession = Depends(get_session)) -> DeliveryRepository:
+    return DeliveryRepository(session)
+
+async def get_delivery_items_repo(session: AsyncSession = Depends(get_session)) -> DeliveryItemsRepository:
+    return DeliveryItemsRepository(session)
+
+async def get_delivery_service(
+    delivery_repo: DeliveryRepository = Depends(get_delivery_repo),
+    items_repo: DeliveryItemsRepository = Depends(get_delivery_items_repo)
+) -> DeliveryService:
+    return DeliveryService(delivery_repo, items_repo)
+
+async def get_shipment_repo(session: AsyncSession = Depends(get_session)) -> ShipmentRepository:
+    return ShipmentRepository(session)
+
+async def get_shipment_items_repo(session: AsyncSession = Depends(get_session)) -> ShipmentItemsRepository:
+    return ShipmentItemsRepository(session)
+
+async def get_shipment_service(
+    shipment_repo: ShipmentRepository = Depends(get_shipment_repo),
+    items_repo: ShipmentItemsRepository = Depends(get_shipment_items_repo)
+) -> ShipmentService:
+    return ShipmentService(shipment_repo, items_repo)
 
 #Services
 def  get_alarm_service(repo: AlarmRepository = Depends(get_alarm_repo)) -> AlarmService:
@@ -115,7 +141,6 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     auth_svc: KeycloakService = Depends(get_keycloak_service)
 ):
-    """Зависимость для получения текущего пользователя"""
     token = credentials.credentials
     logger.info("Getting current user from token")
 
@@ -141,11 +166,9 @@ async def keycloak_auth_middleware(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     auth_svc: KeycloakService = Depends(get_keycloak_service)
 ):
-    """Middleware для проверки аутентификации — аналог Go middleware"""
     token = credentials.credentials
     logger.info("Middleware token validation")
 
-    # Используем validate_token_for_middleware (предполагается, что он есть в AuthService)
     if not await auth_svc.validate_token(token):
         logger.error("Middleware token validation failed")
         raise HTTPException(
@@ -158,15 +181,10 @@ async def keycloak_auth_middleware(
 
 
 async def get_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Получение токена из заголовка Authorization"""
     return credentials.credentials
-
-
 
 def get_predict_repo(db: AsyncSession = Depends(get_session)) -> PredictRepository:
     return PredictRepository(db)
-
-
 
 def get_predict_service(
     repo: PredictRepository = Depends(get_predict_repo),

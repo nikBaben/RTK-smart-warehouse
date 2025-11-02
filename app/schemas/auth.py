@@ -8,7 +8,7 @@ class LoginRequest(BaseModel):
 
 class AuthResponse(BaseModel):
     token: str
-    user: UserResponse  # используем явный импорт
+    user: UserResponse 
 
 class UserInfo(BaseModel):
     sub: Optional[str] = None

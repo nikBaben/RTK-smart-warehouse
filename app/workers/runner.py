@@ -1,4 +1,3 @@
-# app/workers/runner.py
 from __future__ import annotations
 
 import asyncio
@@ -11,17 +10,13 @@ from contextlib import suppress
 from typing import List
 import contextlib
 
-# ──────────────────────────────────────────────────────────────────────────────
-# КРИТИЧЕСКО: отключаем C-расширения SQLAlchemy ДО любых импортов sqlalchemy
-# Это устраняет segfault в связке uvloop/greenlet/sqlalchemy.cyextension
-# ──────────────────────────────────────────────────────────────────────────────
 os.environ.setdefault("SQLALCHEMY_DISABLE_CEXT", "1")  # <-- ключевая строка
 
 # Диагностика/логи
 os.environ.setdefault("PYTHONUNBUFFERED", "1")
 os.environ.setdefault("PYTHONFAULTHANDLER", "1")
 
-# uvloop: ОТКЛЮЧЕНО по умолчанию из-за бага. Можете включить позже (USE_UVLOOP=1)
+#uvloop: ОТКЛЮЧЕНО по умолчанию из-за бага. Можете включить позже (USE_UVLOOP=1)
 USE_UVLOOP = os.getenv("USE_UVLOOP", "0") == "1"
 if USE_UVLOOP:
     try:
@@ -33,16 +28,14 @@ if USE_UVLOOP:
 else:
     print("ℹ️ uvloop disabled (USE_UVLOOP=0)", flush=True)
 
-# faulthandler — печатает стеки при фатальных падениях интерпретатора
+#faulthandler — печатает стеки при фатальных падениях интерпретатора
 try:
     import faulthandler  # type: ignore
     faulthandler.enable(all_threads=True)
 except Exception:
     pass
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Импорты приложения (после env)
-# ──────────────────────────────────────────────────────────────────────────────
 from app.events.bus import EventBus
 import app.events.bus as bus_module
 
@@ -61,7 +54,6 @@ from app.repositories.product_repo import ProductRepository
 from app.repositories.robot_history_repo import RobotHistoryRepository
 from app.repositories.inventory_history_repo import InventoryHistoryRepository
 from app.repositories.robot_repo import RobotRepository
-#from app.repositories.bundle import product_repo_provider,robot_history_repo_provider,inventory_history_repo_provider,robot_repo_provider
 REDIS_DSN = os.getenv("REDIS_DSN", "redis://myapp-redis:6379/0")
 WATCHER_INTERVAL = float(os.getenv("WATCHER_INTERVAL", "2"))
 
@@ -117,11 +109,11 @@ async def _run_task_group_once():
     bus_module.bus = bus  # type: ignore[attr-defined]
     print("🔌 EventBus connected", flush=True)
 
-    # 2) Задачи
+    #Задачи
     tasks: List[asyncio.Task] = []
     try:
         tasks.append(asyncio.create_task(run_robot_watcher_mproc()))
-        tasks.append(asyncio.create_task(continuous_product_snapshot_streamer(interval=60, repo_provider=product_repo_provider,use_ws_rooms=False), name="products_snapshot"))
+        tasks.append(asyncio.create_task(continuous_product_snapshot_streamer(interval=60,use_ws_rooms=False), name="products_snapshot"))
         tasks.append(asyncio.create_task(continuous_robot_avg_streamer(interval=60,repo_provider = robot_repo_provider, use_ws_rooms=False), name="robot_avg"))
         tasks.append(asyncio.create_task(continuous_inventory_scans_streamer(interval=60,repo_provider = inventory_history_repo_provider, hours=24, use_ws_rooms=False), name="inventory_scans"))
         tasks.append(asyncio.create_task(continuous_inventory_critical_streamer(interval=60,repo_provider = inventory_history_repo_provider, use_ws_rooms=False), name="inventory_critical"))
