@@ -249,9 +249,9 @@ function HistoryPage(){
 						</div>
 					) : (
                         <div className="flex">
-                            <div className="h-[662px] w-[218px]">
+                            <div className="h-auto w-[218px]">
                                 <h2 className="font-medium text-[20px] "> Фильтры</h2>
-                                <div className="h-[662px] w-[218px] bg-white rounded-[15px]">
+                                <div className="h-auto w-[218px] bg-white rounded-[15px]">
                                     <div className="p-[10px] flex flex-col w-[199px] gap-[15px]">
                                         <div className="h-[42px]">
                                             <span className="text-[14px] font-medium"> Поиск </span>
@@ -288,11 +288,11 @@ function HistoryPage(){
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="h-[120px] w-[198px]">
+                                        <div className="h-auto w-[198px]">
                                             <span className="text-[14px] font-medium"> Зоны склада </span>
                                             <SelectableButtons params={zones} onSelect={setSelectedZone} selected={selectedZone} multiple/>
                                         </div>
-                                        <div className="h-[231px] w-[198px]">
+                                        <div className="h-auto w-[198px]">
                                             <span className="text-[14px] font-medium"> Категории товаров </span>
                                             <SelectableButtons params={categories} onSelect={setSelectedCategory} selected={selectedCategory} multiple/>
                                         </div>

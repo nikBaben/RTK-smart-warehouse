@@ -86,32 +86,6 @@ export function UploadCSV() {
 		'shelf',
 	];
 
-	const [isDragActive, setIsDragActive] = useState(false);
-
-	const handleDragEnter = (e) => {
-		e.preventDefault();
-		e.stopPropagation();
-		setIsDragActive(true);
-	};
-
-	const handleDragLeave = (e) => {
-		e.preventDefault();
-		e.stopPropagation();
-		setIsDragActive(false);
-	};
-
-	const handleDragOver = (e) => {
-		e.preventDefault(); // 🔥 важно — убирает стандартную рамку браузера
-		e.stopPropagation();
-	};
-
-	const handleDropWrapper = (e) => {
-		e.preventDefault();
-		e.stopPropagation();
-		setIsDragActive(false);
-		handleDrop(e);
-	};
-
 	const handleDrop = async (acceptedFiles: File[]) => {
 		setError(null);
 		setCsvPreview(null);
