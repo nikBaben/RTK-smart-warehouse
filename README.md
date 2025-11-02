@@ -30,7 +30,7 @@
 ## 🏗 Архитектура проекта
 
 <p align="center">
-  <img src="./docs/architecture.png" width="800" alt="System Architecture">
+  <img src="./docs/SCR-20251102-qxah.png" width="800" alt="System Architecture">
 </p>
 
 **Компоненты проекта:**
