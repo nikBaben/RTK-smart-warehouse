@@ -116,87 +116,99 @@ type SocketMessage =
 
 interface SocketState {
 	avgBattery?: RobotAvgBattery
+	avgBatteryLoading: boolean
+	avgBatteryError?: string | null
+
 	robotsData?: RobotActiveRobots
+	robotsLoading: boolean
+	robotsError?: string | null
+
 	scanned24h?: InventoryScanned24h
+	scanned24hLoading: boolean
+
 	criticalUnique?: InventoryCriticalUnique
+	criticalUniqueLoading: boolean
+
 	statusAvg?: InventoryStatusAvg
+	statusAvgLoading: boolean
+
 	activitySeries?: RobotActivitySeries
+	activitySeriesLoading: boolean
+
 	productScan?: ProductScan
+	productScanLoading: boolean
+
 	robotPositions?: RobotPositions
+	robotPositionsLoading: boolean
+
 	productSnapshot?: ProductSnapshot
+	productSnapshotLoading: boolean
+
 	connectionState: ReadyState
 
-	loading: boolean
-	error?: string | null
-
+	setConnectionState: (state: ReadyState) => void
 	updateData: (msg: SocketMessage) => void
 	resetData: () => void
-	setConnectionState: (state: ReadyState) => void
 }
 
 export const useSocketStore = create(
 	subscribeWithSelector<SocketState>(set => ({
-		avgBattery: undefined,
-		robotsData: undefined,
-		scanned24h: undefined,
-		criticalUnique: undefined,
-		statusAvg: undefined,
-		activitySeries: undefined,
-		productScan: undefined,
 		connectionState: ReadyState.CLOSED,
-		loading: true,
-		error: null,
+
+		avgBatteryLoading: true,
+		robotsLoading: true,
+		scanned24hLoading: true,
+		criticalUniqueLoading: true,
+		statusAvgLoading: true,
+		activitySeriesLoading: true,
+		productScanLoading: true,
+		robotPositionsLoading: true,
+		productSnapshotLoading: true,
 		setConnectionState: state => set({ connectionState: state }),
-		setLoading: (loading: boolean) => set({ loading }),
-		setError: (error: string | null) => set({ error }),
 
 		updateData: msg => {
-			try{
-				set({loading:true,error:null})
-								switch (msg.type) {
+			try {
+				switch (msg.type) {
 					case 'robot.avg_battery':
-						set({ avgBattery: msg })
+						set({ avgBattery: msg, avgBatteryLoading: false })
 						break
 					case 'robot.active_robots':
-						set({ robotsData: msg })
+						set({ robotsData: msg, robotsLoading: false })
 						break
 					case 'inventory.scanned_24h':
-						set({ scanned24h: msg })
+						set({ scanned24h: msg, scanned24hLoading: false })
 						break
 					case 'inventory.critical_unique':
-						set({ criticalUnique: msg })
+						set({ criticalUnique: msg, criticalUniqueLoading: false })
 						break
 					case 'inventory.status_avg':
-						set({ statusAvg: msg })
+						set({ statusAvg: msg, statusAvgLoading: false })
 						break
 					case 'robot.activity_series':
 						set(state => {
 							if (
 								JSON.stringify(state.activitySeries?.series) ===
 								JSON.stringify(msg.series)
-							) {
-								return {} // ничего не меняем, чтобы не вызавать ререндер
-							}
-							return { activitySeries: msg } // заменяем полностью
+							)
+								return {}
+							return { activitySeries: msg, activitySeriesLoading: false }
 						})
 						break
 					case 'product.scan':
-						set({ productScan: msg })
+						set({ productScan: msg, productScanLoading: false })
 						break
 					case 'robot.positions':
-						set({ robotPositions: msg })
+						set({ robotPositions: msg, robotPositionsLoading: false })
 						break
 					case 'product.snapshot':
-						set({ productSnapshot: msg })
+						set({ productSnapshot: msg, productSnapshotLoading: false })
 						break
 					default:
 						console.warn('⚠️ Неизвестный тип сообщения:', msg)
 				}
-				set({ loading: false })
-			} catch (err){
+			} catch (err) {
 				toast.error('Ошибка при обновлении сокета')
 				console.error('Ошибка при обновлении сокета:', err)
-				set({ loading: false, error: (err as Error).message })
 			}
 		},
 		resetData: () => {
@@ -208,8 +220,16 @@ export const useSocketStore = create(
 				statusAvg: undefined,
 				activitySeries: undefined,
 				productScan: undefined,
-				loading: true,
-				error: null,
+				
+				avgBatteryLoading: true,
+				robotsLoading: true,
+				scanned24hLoading: true,
+				criticalUniqueLoading: true,
+				statusAvgLoading: true,
+				activitySeriesLoading: true,
+				productScanLoading: true,
+				robotPositionsLoading: true,
+				productSnapshotLoading: true,
 			})
 		},
 	}))

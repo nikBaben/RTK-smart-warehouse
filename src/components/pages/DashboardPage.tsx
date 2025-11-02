@@ -1,5 +1,5 @@
 import { useEffect} from "react";
-import { ScanStoryTable } from "../widgets/ScanStoryTable";
+import { ScanStoryTable } from '../widgets/warehouse/ScanStoryTable';
 import { RobotActivityChart } from "@/components/widgets/warehouse/RobotActivityChart";
 import { SoonDepletedList } from "../widgets/SoonDepletedList";
 import { UserAvatar } from '../ui/UserAvatar';
@@ -27,7 +27,7 @@ function DashboardPage(){
 		fetchWarehouses()
 	}, [])
   return (
-		<div className='flex bg-[#F4F4F5] h-screen overflow-hidden'>
+		<div className='flex bg-[#F4F4F5] h-screen'>
 			<div className='flex flex-col flex-1 ml-[60px]'>
 				<header className='header-style shrink-0'>
 					<span className='pagename-font'>Дашборд</span>

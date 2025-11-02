@@ -2,20 +2,16 @@ import { motion } from 'framer-motion'
 import { useSocketStore } from '@/store/useSocketStore'
 import { Spinner } from '@/components/ui/spinner'
 export function CriticalUnique() {
-	const { criticalUnique, loading, error } = useSocketStore()
+	const { criticalUnique, criticalUniqueLoading } = useSocketStore()
 	return (
 		<div className='dashboard-card'>
-			{loading ?(
+			{criticalUniqueLoading ? (
 				<div className='spinner-load-container dashboard-card-load-font'>
-					<Spinner className='size-5 m-1' /> ищем критические остатки...
+					<Spinner className='size-5 m-1' /> ищем крит. остатки...
 				</div>
-			):error?(
-				<div className='spinner-load-container dashboard-card-load-font'>
-					{error}
-				</div>
-			):(
+			) : (
 				<motion.div
-					initial={{ opacity: 0, y: 20 }}
+					initial={{ opacity: 0 }}
 					animate={{ opacity: 1, y: 0 }}
 				>
 					<h3 className='dashboard-section-font'>Критические остатки</h3>

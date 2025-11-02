@@ -25,6 +25,7 @@ export const useDepletionStore = create<DepletionState>((set, get) => ({
 	loading: false,
 	error: null,
 
+
 	//получаем товары с ближайшим истощением
 	fetchSoonDepleted: async(warehouse_id: string) => {
     set({loading: true, error: null})
@@ -40,14 +41,23 @@ export const useDepletionStore = create<DepletionState>((set, get) => ({
   },
 
   recalcDepletion: async (product_id: string, warehouse_id: string) => {
-    try{
-      await api.post('ml/depletion',{product_id,warehouse_id})
-      await get().fetchSoonDepleted(warehouse_id)
-    } catch (err: any){
-      set({
-				error: err?.response?.data?.message || err.message || 'Ошибка пересчета',
+    try {
+			await api.post('ml/depletion', null, {
+				params: {
+					product_id,
+					warehouse_id,
+					horizon_days: 30,
+				},
+			})
+			await get().fetchSoonDepleted(warehouse_id)
+		} catch (err: any) {
+			set({
+				error:
+					err?.response?.data?.message || err.message || 'Ошибка пересчета',
 				loading: false,
 			})
-    }
+		} finally {
+			set({ loading: false })
+		}
   }
 }))

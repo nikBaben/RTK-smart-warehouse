@@ -20,7 +20,7 @@ const GRID_X = 26 // A–Z
 const GRID_Y = 50
 
 export function WarehouseMap() {
-	const { robotPositions, productSnapshot, loading, error } = useSocketStore()
+	const { robotPositions, productSnapshot, productSnapshotLoading } = useSocketStore()
 	const robots = robotPositions?.robots ?? []
 	const products = productSnapshot?.items ?? []
 
@@ -208,14 +208,9 @@ export function WarehouseMap() {
 			ref={containerRef}
 			className='relative w-full h-[97%] bg-[#F6F7F7] overflow-hidden rounded-[10px]'
 		>
-			{loading ? (
+			{productSnapshotLoading ? (
 				<div className='animate-pulse spinner-load-container dashboard-card-load-font !text-[24px]'>
 					<Spinner className='size-4 m-1' /> строим карту склада...
-				</div>
-			) : error ? (
-				<div className='spinner-load-container dashboard-card-load-font'>
-					<span>ошибка при загрузке карты: </span>
-					{error}
 				</div>
 			) : (
 				<svg
@@ -237,30 +232,38 @@ export function WarehouseMap() {
 						transition={{ duration: 0.1 }}
 					>
 						<g transform={`translate(${offsetX}, ${offsetY})`}>
+							
+							{/* РАЗМЕТКА ЗОН (ОТДЕЛОВ) */}
+							{/* РАЗГРУЗКА */}
 							<rect
 								x={0}
 								y={0}
 								width={gridWidth}
-								height={gridHeight / 4}
+								height={gridHeight / 5}
 								fill='#FFD6D6'
 								opacity={0.3}
 							/>
+
+							{/* ХРАНЕНИЕ */}
 							<rect
 								x={0}
-								y={gridHeight / 4}
+								y={gridHeight / 5}
 								width={gridWidth}
-								height={gridHeight / 2}
+								height={(gridHeight / 5)*3}
 								fill='#D6FFD6'
 								opacity={0.3}
 							/>
+
+							{/* ПОГРУЗКА */}
 							<rect
 								x={0}
-								y={(gridHeight / 4) * 3}
+								y={(gridHeight / 5) * 4}
 								width={gridWidth}
-								height={gridHeight / 4}
+								height={gridHeight / 5}
 								fill='#D6E0FF'
 								opacity={0.3}
 							/>
+
 							{/* СЕТКА */}
 							{letters.map((_, i) => (
 								<line

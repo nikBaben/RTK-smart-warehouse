@@ -4,6 +4,7 @@ import Refresh from '@atomaro/icons/24/action/Refresh';
 import { useDepletionStore } from '@/store/useDepletionStore'
 import { useSocketStore } from '@/store/useSocketStore'
 import { Spinner } from '@/components/ui/spinner'
+import { motion } from 'framer-motion'
 
 type Props = {
 	warehouse_id: string
@@ -64,7 +65,11 @@ export function SoonDepletedList(props: Props) {
 					<p>в ближайшие 7 дней товаров с критическим остатком не ожидается</p>
 				</div>
 			) : (
-				<div className='flex flex-col gap-2'>
+				<motion.div
+					initial={{ opacity: 0 }}
+					animate={{ opacity: 1, y: 0 }}
+					className='flex flex-col gap-2'
+				>
 					{items.map(item => (
 						<div
 							key={item.product_id}
@@ -106,7 +111,7 @@ export function SoonDepletedList(props: Props) {
 							</div>
 						</div>
 					))}
-				</div>
+				</motion.div>
 			)}
 		</div>
 	)

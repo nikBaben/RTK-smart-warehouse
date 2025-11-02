@@ -3,7 +3,7 @@ import { useSocketStore } from '@/store/useSocketStore'
 import { Spinner } from '@/components/ui/spinner'
 
 export function StatusAvgCard(){
-  const { statusAvg, loading, error } = useSocketStore()
+  const { statusAvg, statusAvgLoading } = useSocketStore()
   const getStatusName = (status: string) => {
 		switch (status) {
 			case 'ok':
@@ -18,17 +18,13 @@ export function StatusAvgCard(){
 	}
   return (
 		<div className='dashboard-card !col-span-3'>
-			{loading ? (
+			{statusAvgLoading ? (
 				<div className='spinner-load-container dashboard-card-load-font'>
 					<Spinner className='size-4 m-1' /> определяем ср. статус склада...
 				</div>
-			) : error ? (
-				<div className='spinner-load-container dashboard-card-load-font'>
-					{error}
-				</div>
 			) : statusAvg?.status !== undefined ? (
 				<motion.div
-					initial={{ opacity: 0, y: 20 }}
+					initial={{ opacity: 0 }}
 					animate={{ opacity: 1, y: 0 }}
 				>
 					<h3 className='dashboard-section-font'>Ср. статус по складу</h3>

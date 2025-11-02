@@ -2,20 +2,16 @@ import { motion } from 'framer-motion'
 import { useSocketStore } from '@/store/useSocketStore'
 import { Spinner } from '@/components/ui/spinner'
 export function Scanned24hCard() {
-	const { scanned24h, loading, error } = useSocketStore()
+	const { scanned24h, scanned24hLoading } = useSocketStore()
 	return (
 		<div className='dashboard-card'>
-			{loading ? (
+			{scanned24hLoading ? (
 				<div className='spinner-load-container dashboard-card-load-font'>
 					<Spinner className='size-4 m-1' /> собираем статистику...
 				</div>
-			) : error ? (
-				<div className='spinner-load-container dashboard-card-load-font'>
-					{error}
-				</div>
 			) : (
 				<motion.div
-					initial={{ opacity: 0, y: 20 }}
+					initial={{ opacity: 0 }}
 					animate={{ opacity: 1, y: 0 }}
 				>
 					<h3 className='dashboard-section-font'>Проверено за 24ч</h3>

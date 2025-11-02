@@ -243,7 +243,19 @@ function SuppliesPage() {
 						</div>
 						<div className='flex justify-end'>
 							<Button
-								onClick={() => exportMonthlyReport()}
+								disabled = {true}
+								onClick={() => {
+									if (!selectedWarehouse?.id) {
+										toast.error('Выберите склад для экспорта отчёта')
+										return
+									}
+
+									exportMonthlyReport({
+										year: 2025,
+										warehouse_id: selectedWarehouse.id,
+										months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+									})
+								}}
 								className='supplies-export-excel ml-auto'
 							>
 								<Upload fill='#7700FF' className='h-[8px] w-[8px]' />

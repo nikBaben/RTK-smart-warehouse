@@ -11,7 +11,11 @@ type SupplyStore = {
 
 	fetchSupplies: (warehouse_id: string) => Promise<void>
 	clearSupplies: () => void
-	exportMonthlyReport: () => Promise<void>
+	exportMonthlyReport: (params: {
+    year: number
+    warehouse_id: string
+    months: number[]
+  }) => Promise<void>
 }
 
 export const useSupplyStore = create<SupplyStore>(set => ({
@@ -51,12 +55,12 @@ export const useSupplyStore = create<SupplyStore>(set => ({
 
 	clearSupplies: () => set({ shipments: [], deliveries: [] }),
 	
-	exportMonthlyReport: async () => {
+	exportMonthlyReport: async ({year, warehouse_id, months}) => {
 		try {
 			set({ loading: true })
 			const response = await api.post(
 				'reports/supplies/monthly-excel',
-				{},
+				{ year, warehouse_id, months },
 				{ responseType: 'blob' } //получаем бинарный файл
 			)
 

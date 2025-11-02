@@ -2,20 +2,16 @@ import { motion } from 'framer-motion'
 import { useSocketStore } from '@/store/useSocketStore'
 import { Spinner } from '@/components/ui/spinner'
 export function RobotsDataCard() {
-	const { robotsData, loading, error } = useSocketStore()
+	const { robotsData, robotsLoading, } = useSocketStore()
 	return (
 		<div className='dashboard-card !h-full'>
-			{loading || robotsData?.robots === undefined ? (
+			{robotsLoading || robotsData?.robots === undefined ? (
 				<div className='spinner-load-container dashboard-card-load-font'>
 					<Spinner className='size-5 m-1' /> загружаем роботов...
 				</div>
-			) : error ? (
-				<div className='spinner-load-container dashboard-card-load-font'>
-					{error}
-				</div>
 			) : (
 				<motion.div
-					initial={{ opacity: 0, y: 20 }}
+					initial={{ opacity: 0 }}
 					animate={{ opacity: 1, y: 0 }}
 				>
 					<h3 className='dashboard-section-font mb-0'>Роботы</h3>

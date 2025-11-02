@@ -214,7 +214,7 @@ function HistoryPage() {
 				<header className='header-style'>
 					<span className='pagename-font'>Исторические данные</span>
 					<div className='flex items-center space-x-5'>
-                        <SelectWarehouse/>
+						<SelectWarehouse />
 						<UserAvatar />
 					</div>
 				</header>
@@ -415,7 +415,7 @@ function HistoryPage() {
 								<div className='flex items-center justify-end gap-[10px] pt-[10px]'>
 									<div className='flex gap-[5px]'>
 										<Button
-											className='h-[30px] w-[187px] text-[12px] text-[#7700FF] bg-[#F7F0FF] border-[#7700FF] border-[1px] rounded-[10px] font-medium'
+											className='history-export'
 											onClick={async () => {
 												if (!selectedWarehouse?.id) {
 													alert('Выберите склад')
@@ -482,7 +482,7 @@ function HistoryPage() {
 										</Button>
 
 										<Button
-											className='h-[30px] w-[187px] text-[12px] text-[#7700FF] bg-[#F7F0FF] border-[#7700FF] border-[1px] rounded-[10px] font-medium'
+											className='history-export'
 											onClick={async () => {
 												if (!selectedWarehouse?.id) {
 													alert('Выберите склад')
@@ -547,96 +547,101 @@ function HistoryPage() {
 											<Upload fill='#7700FF' className='h-[8px] w-[8px]' />
 											Экспорт в PDF
 										</Button>
-									</div>
-									<Button
-										onClick={async () => {
-											if (!selectedWarehouse?.id) {
-												alert('Выберите склад')
-												return
-											}
-											if (selectedRows.length === 0) {
-												alert(
-													'Выберите хотя бы одну строку для построения графика'
-												)
-												return
-											}
-
-											try {
-												const res = await fetch(
-													`https://dev.rtk-smart-warehouse.ru/api/v1/inventory_history/inventory_history_create_graph/${selectedWarehouse.id}`,
-													{
-														method: 'POST',
-														headers: {
-															'Content-Type': 'application/json',
-															Authorization: `Bearer ${token}`,
-														},
-														body: JSON.stringify({ record_ids: selectedRows }),
-													}
-												)
-
-												if (!res.ok) {
-													const text = await res.text()
-													console.error('Ошибка сервера:', text)
-													throw new Error('Ошибка при построении графика')
+										<Button
+											onClick={async () => {
+												if (!selectedWarehouse?.id) {
+													alert('Выберите склад')
+													return
 												}
-
-												const json = await res.json()
-												const rawData = json.data || {}
-
-												const normalizeDate = (iso: string) => {
-													const d = new Date(iso)
-													d.setMilliseconds(0)
-													return d.toISOString()
-												}
-
-												const allDates = new Set<string>()
-												Object.values(rawData).forEach((entries: any) => {
-													entries.forEach(([dateStr]: [string, number]) =>
-														allDates.add(normalizeDate(dateStr))
+												if (selectedRows.length === 0) {
+													alert(
+														'Выберите хотя бы одну строку для построения графика'
 													)
-												})
+													return
+												}
 
-												const sortedDates = Array.from(allDates).sort(
-													(a, b) =>
-														new Date(a).getTime() - new Date(b).getTime()
-												)
-
-												const merged: Record<string, any> = {}
-												const lastKnown: Record<string, number | null> = {}
-
-												sortedDates.forEach(date => {
-													merged[date] = { date }
-													Object.keys(rawData).forEach(product => {
-														const entry = (
-															rawData[product] as [string, number][]
-														).find(([d]) => normalizeDate(d) === date)
-
-														if (entry) {
-															const [, value] = entry
-															lastKnown[product] = value
+												try {
+													const res = await fetch(
+														`https://dev.rtk-smart-warehouse.ru/api/v1/inventory_history/inventory_history_create_graph/${selectedWarehouse.id}`,
+														{
+															method: 'POST',
+															headers: {
+																'Content-Type': 'application/json',
+																Authorization: `Bearer ${token}`,
+															},
+															body: JSON.stringify({
+																record_ids: selectedRows,
+															}),
 														}
+													)
 
-														merged[date][product] =
-															lastKnown[product] !== undefined
-																? lastKnown[product]
-																: null
+													if (!res.ok) {
+														const text = await res.text()
+														console.error('Ошибка сервера:', text)
+														throw new Error('Ошибка при построении графика')
+													}
+
+													const json = await res.json()
+													const rawData = json.data || {}
+
+													const normalizeDate = (iso: string) => {
+														const d = new Date(iso)
+														d.setMilliseconds(0)
+														return d.toISOString()
+													}
+
+													const allDates = new Set<string>()
+													Object.values(rawData).forEach((entries: any) => {
+														entries.forEach(([dateStr]: [string, number]) =>
+															allDates.add(normalizeDate(dateStr))
+														)
 													})
-												})
 
-												const formattedData = Object.values(merged)
+													const sortedDates = Array.from(allDates).sort(
+														(a, b) =>
+															new Date(a).getTime() - new Date(b).getTime()
+													)
 
-												setGraphData(formattedData)
-												setShowGraph(true)
-											} catch (err) {
-												console.error(err)
-												alert('Не удалось построить график')
-											}
-										}}
-										className='h-[30px] w-[187px] text-[12px] text-white bg-[#7700FF] rounded-[10px] font-medium'
-									>
-										<StatisticsLine fill='white' className='h-[6px] w-[11px]' />
-										Построить график
-									</Button>
+													const merged: Record<string, any> = {}
+													const lastKnown: Record<string, number | null> = {}
+
+													sortedDates.forEach(date => {
+														merged[date] = { date }
+														Object.keys(rawData).forEach(product => {
+															const entry = (
+																rawData[product] as [string, number][]
+															).find(([d]) => normalizeDate(d) === date)
+
+															if (entry) {
+																const [, value] = entry
+																lastKnown[product] = value
+															}
+
+															merged[date][product] =
+																lastKnown[product] !== undefined
+																	? lastKnown[product]
+																	: null
+														})
+													})
+
+													const formattedData = Object.values(merged)
+
+													setGraphData(formattedData)
+													setShowGraph(true)
+												} catch (err) {
+													console.error(err)
+													alert('Не удалось построить график')
+												}
+											}}
+											className='history-chart-button'
+										>
+											<StatisticsLine
+												fill='white'
+												className='h-[6px] w-[11px]'
+											/>
+											Построить график
+										</Button>
+									</div>
 								</div>
 							</div>
 						</div>
