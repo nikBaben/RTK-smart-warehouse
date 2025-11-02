@@ -152,12 +152,16 @@ function HistoryPage() {
 		{ header: 'категория', accessor: 'category', sortable: true },
 		{ header: 'зона склада', accessor: 'current_zone', sortable: true },
 		{ header: 'название', accessor: 'name', sortable: true },
-		{
-			header: 'количество ожидаемое/фактическое',
-			accessor: 'stock',
-			sortable: true,
-		},
-		{ header: 'расхождение (+/-)', accessor: 'deviation', sortable: true },
+        {
+            header: 'ожидаемое / фактическое',
+            accessor: (row) =>
+            `${row.expected_count ?? 0} / ${row.stock ?? 0}`,
+            sortable: true,
+            sortKey: "expected_count",
+        },
+        {
+            header: 'расхождение (+/-)', accessor: (row) => row.difference ?? 0, sortable: true,
+        },
 		{
 			header: 'статус',
 			accessor: row => {

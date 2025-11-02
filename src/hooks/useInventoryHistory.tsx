@@ -16,7 +16,9 @@ export interface InventoryHistoryItem {
   zone?: string;
   current_zone?: string;
   status: string;
-  count?: number;
+  count?: number; // старое поле, оставляем для совместимости
+  expected_count?: number; // ожидаемое количество (если null → 0)
+  difference?: number; // расхождение
   stock?: number;
   user?: string;
   created_at: string;
@@ -39,7 +41,7 @@ export type SortOrder = "asc" | "desc";
 
 // Новый формат ответа сервера
 export interface HistoryResponse {
-  data: [InventoryHistoryItem[], number]; // [список, общее количество]
+  data: any; // структура стала динамической, типизируем вручную ниже
 }
 
 // ========================
@@ -102,13 +104,26 @@ const historyService = {
       }
     );
 
-    const [items, total] = response.data.data || [[], 0];
+    // Новый формат: [[[item, expected_count, difference]], total]
+    const rawData = response.data.data || [[], 0];
+    const nestedItems = rawData[0] || [];
+    const total = rawData[1] || 0;
+
+    const items = nestedItems.map((entry: any) => {
+      const [item, expected, difference] = entry;
+      return {
+        ...item,
+        expected_count: expected ?? 0, // если null → 0
+        difference,
+      };
+    });
+
     return { data: items, total };
   },
 };
 
 // ========================
-// 🔹 Вспомогательная функция форматирования даты
+// 🔹 Форматирование даты
 // ========================
 function formatDate(dateString: string): string {
   if (!dateString) return "";
