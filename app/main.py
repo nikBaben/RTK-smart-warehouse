@@ -25,6 +25,7 @@ from app.api.routers import supplies
 from app.api.routers import reports
 from app.events.bus import get_bus_for_current_loop, close_bus_for_current_loop
 from app.ws.redis_forwarder import start_redis_forwarder
+from app.api.routers import supplies, reports, deliveries, shipments
 
 app = FastAPI(title=settings.APP_NAME)
 
@@ -41,8 +42,10 @@ app.add_middleware(
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 app.include_router(ws_router.router, prefix="/api") 
 
-app.include_router(supplies.router)
-app.include_router(reports.router)
+app.include_router(supplies.router, prefix=settings.API_V1_PREFIX)
+app.include_router(reports.router, prefix=settings.API_V1_PREFIX)
+app.include_router(deliveries.router, prefix=settings.API_V1_PREFIX)
+app.include_router(shipments.router, prefix=settings.API_V1_PREFIX)
 
 # Держим ссылку на фон.таску форвардера, чтобы корректно её останавливать
 _redis_forwarder_task: asyncio.Task | None = None

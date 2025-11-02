@@ -1,6 +1,6 @@
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 
 from app.models.shipment import Shipment
 
@@ -38,3 +38,9 @@ class ShipmentRepository:
             select(Shipment).where(Shipment.warehouse_id == warehouse_id)
         )
         return result.scalars().all()
+    
+    async def delete(self, id: str) -> bool:
+        stmt = delete(Shipment).where(Shipment.id == id)
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return result.rowcount > 0

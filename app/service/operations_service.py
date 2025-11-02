@@ -13,7 +13,6 @@ class OperationsService:
         """Получить все поставки и отгрузки для конкретного склада"""
         deliveries, shipments = await self.repo.get_all_operations_by_warehouse(warehouse_id)
         
-        # Преобразуем модели в схемы ответа
         delivery_responses = [
             DeliveryShortResponse(
                 id=delivery.id,

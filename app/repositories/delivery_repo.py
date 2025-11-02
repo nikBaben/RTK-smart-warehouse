@@ -1,6 +1,6 @@
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import select, update, delete
 
 from app.models.delivery import Delivery
 from app.models.enums import DeliveryStatus
@@ -45,3 +45,9 @@ class DeliveryRepository:
         async with self.session.begin():
             result = await self.session.execute(stmt)
         return result.scalars().one_or_none()
+    
+    async def delete(self, id: str) -> bool:
+        stmt = delete(Delivery).where(Delivery.id == id)
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return result.rowcount > 0

@@ -1,6 +1,6 @@
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import select, update, delete
 
 from app.models.delivery_items import DeliveryItems
 
@@ -44,3 +44,15 @@ class DeliveryItemsRepository:
             .where(DeliveryItems.warehouse_id == warehouse_id)
         )
         return result.scalars().all()
+    
+    async def delete(self, id: str) -> bool:
+        stmt = delete(DeliveryItems).where(DeliveryItems.id == id)
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return result.rowcount > 0
+
+    async def delete_by_delivery_id(self, delivery_id: str) -> bool:
+        stmt = delete(DeliveryItems).where(DeliveryItems.delivery_id == delivery_id)
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return result.rowcount > 0

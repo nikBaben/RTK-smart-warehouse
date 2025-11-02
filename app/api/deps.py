@@ -15,9 +15,15 @@ from app.repositories.inventory_history_repo import InventoryHistoryRepository
 from app.repositories.alarm_repo import AlarmRepository
 from app.repositories.operations_repo import OperationsRepository
 from app.repositories.reports_repo import ReportsRepository
+from app.repositories.delivery_repo import DeliveryRepository
+from app.repositories.delivery_items_repo import DeliveryItemsRepository
+from app.repositories.shipment_repo import ShipmentRepository
+from app.repositories.shipment_items_repo import ShipmentItemsRepository
 
 # Services
 from app.service.robot_service import RobotService
+from app.service.delivery_service import DeliveryService
+from app.service.shipment_service import ShipmentService
 from app.service.product_service import ProductService
 from app.service.warehouse_service import WarehouseService 
 from app.service.auth_service import AuthService
@@ -73,6 +79,30 @@ async def get_auth_service(session: AsyncSession = Depends(get_session), userRep
     keycloak_service = KeycloakService()
     user_service = UserService(userRepo, kkidUserRepo)
     return AuthService(keycloak_service, user_service)
+
+async def get_delivery_repo(session: AsyncSession = Depends(get_session)) -> DeliveryRepository:
+    return DeliveryRepository(session)
+
+async def get_delivery_items_repo(session: AsyncSession = Depends(get_session)) -> DeliveryItemsRepository:
+    return DeliveryItemsRepository(session)
+
+async def get_delivery_service(
+    delivery_repo: DeliveryRepository = Depends(get_delivery_repo),
+    items_repo: DeliveryItemsRepository = Depends(get_delivery_items_repo)
+) -> DeliveryService:
+    return DeliveryService(delivery_repo, items_repo)
+
+async def get_shipment_repo(session: AsyncSession = Depends(get_session)) -> ShipmentRepository:
+    return ShipmentRepository(session)
+
+async def get_shipment_items_repo(session: AsyncSession = Depends(get_session)) -> ShipmentItemsRepository:
+    return ShipmentItemsRepository(session)
+
+async def get_shipment_service(
+    shipment_repo: ShipmentRepository = Depends(get_shipment_repo),
+    items_repo: ShipmentItemsRepository = Depends(get_shipment_items_repo)
+) -> ShipmentService:
+    return ShipmentService(shipment_repo, items_repo)
 
 async def get_operations_repo(session: AsyncSession = Depends(get_session)) -> OperationsRepository:
     return OperationsRepository(session)
