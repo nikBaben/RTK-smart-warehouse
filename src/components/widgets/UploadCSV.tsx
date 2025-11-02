@@ -205,7 +205,7 @@ export function UploadCSV() {
 				</button>
 			</DialogTrigger>
 
-			<DialogContent className='max-w-[558px] max-h-[286px] bg-[#F4F4F5] text-black py-[10px] px-[20px] rounded-[15px] flex flex-col gap-[5px]'>
+			<DialogContent className='max-w-[558px] max-h-[326px] bg-[#F4F4F5] text-black py-[10px] px-[20px] rounded-[15px] flex flex-col gap-[5px]'>
 				<DialogHeader className='flex flex-row justify-between pr-[15px]'>
 					<DialogTitle className='text-[24px]'>Загрузить CSV</DialogTitle>
 					<MiniSelectWarehouse />
@@ -278,12 +278,12 @@ export function UploadCSV() {
 					<div className='flex flex-col w-[518px] h-[276px] gap-[5px] relative'>
 
 						{isUploading ? (
-							<div className='flex flex-col items-center justify-center w-full h-[189px] bg-white rounded-[10px]'>
+							<div className='flex flex-col items-center justify-center w-full h-full bg-white rounded-[10px]'>
 								<FancyProgress value={uploadProgress}/>
 								<p className='text-[#5A606D] text-[14px] mb-2'>Загрузка: {uploadProgress}%</p>
 							</div>
 						) : (
-							<div className='bg-white w-[518px] h-[189px] rounded-[10px] px-[10px]'>
+							<div className='bg-white w-[518px] h-auto rounded-[10px] px-[10px]'>
 								<div className='w-[498px] h-[26px]'>
 									<h2 className='text-black text-[18px] font-medium'>
 										{files?.[0]?.name ? `${files[0].name} — предпросмотр` : 'предпросмотр'}
