@@ -41,7 +41,7 @@ import {
 
 
 function ListPage() {
-	const token = localStorage.getItem('token')
+	const token = localStorage.getItem('token') || sessionStorage.getItem('token')
 	//-----ОБРАБОТКА СОСТОЯНИЙ-----
 	const { user } = useUserStore()
 

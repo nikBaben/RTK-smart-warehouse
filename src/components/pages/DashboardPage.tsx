@@ -15,7 +15,7 @@ import { RobotsDataCard } from '../widgets/warehouse/RobotsDataCard'
 import AvgBatteryCard from "../widgets/warehouse/AvgBatteryCard";
 
 function DashboardPage(){
-	const token = localStorage.getItem('token')
+	const token = localStorage.getItem('token') || sessionStorage.getItem('token')
 	const { warehouses, selectedWarehouse } = useWarehouseStore()
 	const { readyState } = useWarehouseSocket(selectedWarehouse?.id ?? '')
 

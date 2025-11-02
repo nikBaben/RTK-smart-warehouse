@@ -66,7 +66,7 @@ function HistoryPage() {
 		setPage(1)
 	}
 
-	const token = localStorage.getItem('token')
+	const token = localStorage.getItem('token') || sessionStorage.getItem('token')
 	const {
 		warehouses,
 		selectedWarehouse,
@@ -81,34 +81,34 @@ function HistoryPage() {
 		total_records: number
 		unique_products_count: number
 		discrepancy_count: number
-		} | null>(null)
+	} | null>(null)
 
-		useEffect(() => {
+	useEffect(() => {
 		const fetchStatistics = async () => {
 			if (!selectedWarehouse?.id || !token) {
-			setStatistics(null)
-			return
+				setStatistics(null)
+				return
 			}
 
 			try {
-			const res = await api.post(
-				`/inventory_history/get_statistic/${selectedWarehouse.id}`,
-				{},
-				{
-				headers: {
-					Authorization: `Bearer ${token}`,
-				},
-				}
-			)
+				const res = await api.post(
+					`/inventory_history/get_statistic/${selectedWarehouse.id}`,
+					{},
+					{
+						headers: {
+							Authorization: `Bearer ${token}`,
+						},
+					}
+				)
 
-			setStatistics(res.data)
+				setStatistics(res.data)
 			} catch (err) {
-			console.error("Ошибка загрузки статистики:", err)
-			setStatistics(null)
+				console.error('Ошибка загрузки статистики:', err)
+				setStatistics(null)
 			}
 		}
 
-	fetchStatistics()
+		fetchStatistics()
 	}, [selectedWarehouse?.id, token])
 
 	useEffect(() => {
@@ -118,7 +118,8 @@ function HistoryPage() {
 			try {
 				const [zonesRes, categoriesRes] = await Promise.all([
 					api.get(
-						`inventory_history/inventory_history_unique_zones/${selectedWarehouse.id}`),
+						`inventory_history/inventory_history_unique_zones/${selectedWarehouse.id}`
+					),
 					api.get(
 						`/inventory_history/inventory_history_unique_categories/${selectedWarehouse.id}`
 					),
@@ -157,11 +158,6 @@ function HistoryPage() {
 		sortBy,
 		sortOrder
 	)
-
-	console.log(selectedWarehouse?.id)
-	console.log(selectedRows)
-	console.log(token)
-
 	type Column<T> = {
 		header: string
 		accessor: keyof T | ((row: T) => React.ReactNode)
@@ -186,16 +182,17 @@ function HistoryPage() {
 		{ header: 'категория', accessor: 'category', sortable: true },
 		{ header: 'зона склада', accessor: 'current_zone', sortable: true },
 		{ header: 'название', accessor: 'name', sortable: true },
-        {
-            header: 'ожидаемое / фактическое',
-            accessor: (row) =>
-            `${row.expected_count ?? 0} / ${row.stock ?? 0}`,
-            sortable: true,
-            sortKey: "expected_count",
-        },
-        {
-            header: 'расхождение (+/-)', accessor: (row) => row.difference ?? 0, sortable: true,
-        },
+		{
+			header: 'ожидаемое / фактическое',
+			accessor: row => `${row.expected_count ?? 0} / ${row.stock ?? 0}`,
+			sortable: true,
+			sortKey: 'expected_count',
+		},
+		{
+			header: 'расхождение (+/-)',
+			accessor: row => row.difference ?? 0,
+			sortable: true,
+		},
 		{
 			header: 'статус',
 			accessor: row => {
@@ -415,13 +412,16 @@ function HistoryPage() {
 									</h2>
 									<div className='h-[46px] bg-white rounded-[15px] flex items-center justify-between p-[10px]'>
 										<span className='text-[14px] font-light'>
-											всего проверок за период: {statistics?.total_records ?? '—'}
+											всего проверок за период:{' '}
+											{statistics?.total_records ?? '—'}
 										</span>
 										<span className='text-[14px] font-light'>
-											уникальных товаров: {statistics?.unique_products_count ?? '—'}
+											уникальных товаров:{' '}
+											{statistics?.unique_products_count ?? '—'}
 										</span>
 										<span className='text-[14px] font-light'>
-											выявлено расхождений: {statistics?.discrepancy_count ?? '—'}
+											выявлено расхождений:{' '}
+											{statistics?.discrepancy_count ?? '—'}
 										</span>
 										<span className='text-[14px] font-light'>
 											среднее время инвентаризации: в разработке
@@ -455,38 +455,47 @@ function HistoryPage() {
 										<Button
 											className='history-export'
 											onClick={async () => {
-												if (!selectedWarehouse?.id) return alert('Выберите склад')
+												if (!selectedWarehouse?.id)
+													return alert('Выберите склад')
 												if (selectedRows.length === 0)
-												return alert('Выберите хотя бы одну строку для экспорта')
+													return alert(
+														'Выберите хотя бы одну строку для экспорта'
+													)
 
 												try {
-												const res = await api.post(
-													`/inventory_history/inventory_history_export_to_xl/${selectedWarehouse.id}`,
-													{ record_ids: selectedRows },
-													{ responseType: 'blob' }
-												)
+													const res = await api.post(
+														`/inventory_history/inventory_history_export_to_xl/${selectedWarehouse.id}`,
+														{ record_ids: selectedRows },
+														{ responseType: 'blob' }
+													)
 
-												const blob = new Blob([res.data])
-												const disposition = res.headers['content-disposition']
-												let filename = 'Отчёт.xlsx'
-												if (disposition && disposition.includes('filename=')) {
-													filename = disposition.split('filename=')[1].replace(/"/g, '').trim()
-												}
+													const blob = new Blob([res.data])
+													const disposition = res.headers['content-disposition']
+													let filename = 'Отчёт.xlsx'
+													if (
+														disposition &&
+														disposition.includes('filename=')
+													) {
+														filename = disposition
+															.split('filename=')[1]
+															.replace(/"/g, '')
+															.trim()
+													}
 
-												const url = window.URL.createObjectURL(blob)
-												const a = document.createElement('a')
-												a.href = url
-												a.download = filename
-												document.body.appendChild(a)
-												a.click()
-												a.remove()
-												window.URL.revokeObjectURL(url)
+													const url = window.URL.createObjectURL(blob)
+													const a = document.createElement('a')
+													a.href = url
+													a.download = filename
+													document.body.appendChild(a)
+													a.click()
+													a.remove()
+													window.URL.revokeObjectURL(url)
 												} catch (err) {
-												console.error(err)
-												alert('Не удалось скачать файл')
+													console.error(err)
+													alert('Не удалось скачать файл')
 												}
 											}}
-											>
+										>
 											<Upload fill='#7700FF' className='h-[8px] w-[8px]' />
 											Экспорт в Excel
 										</Button>
@@ -494,103 +503,121 @@ function HistoryPage() {
 										<Button
 											className='history-export'
 											onClick={async () => {
-												if (!selectedWarehouse?.id) return alert('Выберите склад')
+												if (!selectedWarehouse?.id)
+													return alert('Выберите склад')
 												if (selectedRows.length === 0)
-												return alert('Выберите хотя бы одну строку для экспорта')
+													return alert(
+														'Выберите хотя бы одну строку для экспорта'
+													)
 
 												try {
-												const res = await api.post(
-													`/inventory_history/inventory_history_export_to_pdf/${selectedWarehouse.id}`,
-													{ record_ids: selectedRows },
-													{ responseType: 'blob' }
-												)
+													const res = await api.post(
+														`/inventory_history/inventory_history_export_to_pdf/${selectedWarehouse.id}`,
+														{ record_ids: selectedRows },
+														{ responseType: 'blob' }
+													)
 
-												const blob = new Blob([res.data])
-												const disposition = res.headers['content-disposition']
-												let filename = 'Отчёт.pdf'
-												if (disposition && disposition.includes('filename=')) {
-													filename = disposition.split('filename=')[1].replace(/"/g, '').trim()
-												}
+													const blob = new Blob([res.data])
+													const disposition = res.headers['content-disposition']
+													let filename = 'Отчёт.pdf'
+													if (
+														disposition &&
+														disposition.includes('filename=')
+													) {
+														filename = disposition
+															.split('filename=')[1]
+															.replace(/"/g, '')
+															.trim()
+													}
 
-												const url = window.URL.createObjectURL(blob)
-												const a = document.createElement('a')
-												a.href = url
-												a.download = filename
-												document.body.appendChild(a)
-												a.click()
-												a.remove()
-												window.URL.revokeObjectURL(url)
+													const url = window.URL.createObjectURL(blob)
+													const a = document.createElement('a')
+													a.href = url
+													a.download = filename
+													document.body.appendChild(a)
+													a.click()
+													a.remove()
+													window.URL.revokeObjectURL(url)
 												} catch (err) {
-												console.error(err)
-												alert('Не удалось скачать файл')
+													console.error(err)
+													alert('Не удалось скачать файл')
 												}
 											}}
-											>
+										>
 											<Upload fill='#7700FF' className='h-[8px] w-[8px]' />
 											Экспорт в PDF
 										</Button>
 
 										<Button
 											onClick={async () => {
-												if (!selectedWarehouse?.id) return alert('Выберите склад')
+												if (!selectedWarehouse?.id)
+													return alert('Выберите склад')
 												if (selectedRows.length === 0)
-												return alert('Выберите хотя бы одну строку для построения графика')
+													return alert(
+														'Выберите хотя бы одну строку для построения графика'
+													)
 
 												try {
-												const res = await api.post(
-													`/inventory_history/inventory_history_create_graph/${selectedWarehouse.id}`,
-													{ record_ids: selectedRows }
-												)
-
-												const json = res.data
-												const rawData = json.data || {}
-
-												const normalizeDate = (iso: string) => {
-													const d = new Date(iso)
-													d.setMilliseconds(0)
-													return d.toISOString()
-												}
-
-												const allDates = new Set<string>()
-												Object.values(rawData).forEach((entries: any) => {
-													entries.forEach(([dateStr]: [string, number]) =>
-													allDates.add(normalizeDate(dateStr))
+													const res = await api.post(
+														`/inventory_history/inventory_history_create_graph/${selectedWarehouse.id}`,
+														{ record_ids: selectedRows }
 													)
-												})
 
-												const sortedDates = Array.from(allDates).sort(
-													(a, b) => new Date(a).getTime() - new Date(b).getTime()
-												)
+													const json = res.data
+													const rawData = json.data || {}
 
-												const merged: Record<string, any> = {}
-												const lastKnown: Record<string, number | null> = {}
-
-												sortedDates.forEach(date => {
-													merged[date] = { date }
-													Object.keys(rawData).forEach(product => {
-													const entry = (rawData[product] as [string, number][]).find(
-														([d]) => normalizeDate(d) === date
-													)
-													if (entry) {
-														const [, value] = entry
-														lastKnown[product] = value
+													const normalizeDate = (iso: string) => {
+														const d = new Date(iso)
+														d.setMilliseconds(0)
+														return d.toISOString()
 													}
-													merged[date][product] =
-														lastKnown[product] !== undefined ? lastKnown[product] : null
-													})
-												})
 
-												const formattedData = Object.values(merged)
-												setGraphData(formattedData)
-												setShowGraph(true)
+													const allDates = new Set<string>()
+													Object.values(rawData).forEach((entries: any) => {
+														entries.forEach(([dateStr]: [string, number]) =>
+															allDates.add(normalizeDate(dateStr))
+														)
+													})
+
+													const sortedDates = Array.from(allDates).sort(
+														(a, b) =>
+															new Date(a).getTime() - new Date(b).getTime()
+													)
+
+													const merged: Record<string, any> = {}
+													const lastKnown: Record<string, number | null> = {}
+
+													sortedDates.forEach(date => {
+														merged[date] = { date }
+														Object.keys(rawData).forEach(product => {
+															const entry = (
+																rawData[product] as [string, number][]
+															).find(([d]) => normalizeDate(d) === date)
+															if (entry) {
+																const [, value] = entry
+																lastKnown[product] = value
+															}
+															merged[date][product] =
+																lastKnown[product] !== undefined
+																	? lastKnown[product]
+																	: null
+														})
+													})
+
+													const formattedData = Object.values(merged)
+													setGraphData(formattedData)
+													setShowGraph(true)
 												} catch (err) {
-												console.error(err)
-												alert('Не удалось построить график')
+													console.error(err)
+													alert('Не удалось построить график')
 												}
 											}}
 											className='history-chart-button'
-											>
-											<StatisticsLine fill='white' className='h-[6px] w-[11px]' />
+										>
+											<StatisticsLine
+												fill='white'
+												className='h-[6px] w-[11px]'
+											/>
 											Построить график
 										</Button>
 									</div>

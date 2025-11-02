@@ -232,7 +232,6 @@ export function WarehouseMap() {
 						transition={{ duration: 0.1 }}
 					>
 						<g transform={`translate(${offsetX}, ${offsetY})`}>
-							
 							{/* РАЗМЕТКА ЗОН (ОТДЕЛОВ) */}
 							{/* РАЗГРУЗКА */}
 							<rect
@@ -249,7 +248,7 @@ export function WarehouseMap() {
 								x={0}
 								y={gridHeight / 5}
 								width={gridWidth}
-								height={(gridHeight / 5)*3}
+								height={(gridHeight / 5) * 3}
 								fill='#D6FFD6'
 								opacity={0.3}
 							/>
@@ -315,7 +314,12 @@ export function WarehouseMap() {
 														.tooltip
 												} p-2 border-[1px] text-[10px]`}
 										>
-											<p>имя: {item.name}</p>
+											<p>
+												имя:{' '}
+												{item.name.length > 14
+													? item.name.slice(0, 14) + '...'
+													: item.name}
+											</p>
 											<Separator className='bg-black' />
 											<p>кол-во: {item.stock}</p>
 											<Separator className='bg-black' />
