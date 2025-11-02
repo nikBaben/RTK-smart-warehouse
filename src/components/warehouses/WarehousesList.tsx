@@ -64,7 +64,7 @@ export const WarehouseList: FC<Props> = ({
 						<div
 							onClick={() => onSelect(wh)}
 							onContextMenu={() => onContextMenu?.(wh)}
-							className={`flex justify-between items-center bg-[#F2F3F4] rounded-[10px] max-h-[60px] px-[10px] py-[10px] cursor-pointer transition-all border-[2px]
+							className={`big-list-item-container
                 ${
 									selectedWarehouse?.id === wh.id
 										? 'border-[#7700FF]'

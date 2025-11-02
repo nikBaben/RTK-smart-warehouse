@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from '@/api/axios'
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import CheckLarge from "@atomaro/icons/24/navigation/CheckLarge";
@@ -28,6 +28,7 @@ import { TrendGraph } from "../widgets/TrendGraph.tsx";
 
 import StatisticsLine from '@atomaro/icons/24/business/StatisticsLine';
 import Upload from '@atomaro/icons/24/action/Upload';
+import SelectWarehouse from "../ui/SelectWarehouse.tsx";
 
 
 function HistoryPage(){
@@ -80,13 +81,11 @@ function HistoryPage(){
 
         try {
         const [zonesRes, categoriesRes] = await Promise.all([
-            axios.get(
-            `https://dev.rtk-smart-warehouse.ru/api/v1/inventory_history/inventory_history_unique_zones/${selectedWarehouse.id}`,
-            { headers: { Authorization: `Bearer ${token}` } }
+            api.get(
+            `inventory_history/inventory_history_unique_zones/${selectedWarehouse.id}`,
             ),
-            axios.get(
-            `https://dev.rtk-smart-warehouse.ru/api/v1/inventory_history/inventory_history_unique_categories/${selectedWarehouse.id}`,
-            { headers: { Authorization: `Bearer ${token}` } }
+            api.get(
+            `inventory_history/inventory_history_unique_categories/${selectedWarehouse.id}`
             ),
         ]);
 
@@ -213,394 +212,455 @@ function HistoryPage(){
   };
 
     return (
-        <div className="flex bg-[#F4F4F5] min-h-screen">
-            <div className="flex flex-col flex-1 overflow-hidden ml-[60px]">
-                <header className='header-style'>
-                    <span className='pagename-font'>Исторические данные</span>
-                    <div className='flex items-center space-x-5'>
-                        <div className='relative'>
-							<Select
-								value={selectedWarehouse?.id || ''}
-								onValueChange={id => {
-									const wh = warehouses.find(w => w.id === id) || null
-									setSelectedWarehouse(wh)
-                                    resetFilters()
-								}}
-							>
-								<SelectTrigger className='select-warehouse'>
-									<SelectValue placeholder='Выберите склад' />
-								</SelectTrigger>
-								<SelectContent>
-									{warehouses.map(w => (
-										<SelectItem key={w.id} value={w.id}>
-											{w.name}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
+			<div className='flex bg-[#F4F4F5] min-h-screen'>
+				<div className='flex flex-col flex-1 overflow-hidden ml-[60px]'>
+					<header className='header-style'>
+						<span className='pagename-font'>Исторические данные</span>
+						<div className='flex items-center space-x-5'>
+                            <SelectWarehouse/>
+							<UserAvatar />
 						</div>
-                        <UserAvatar />
-                    </div>
-                </header>
-                <main className="flex-1 overflow-auto p-[10px]">
-                    {selectedWarehouse?.id == null ? (
-						<div className='flex items-center justify-center font-medium text-center h-full text-[#9699A3] text-[40px]'>
-							<h1>выберите склад для отображения истории</h1>
-						</div>
-					) : (
-                        <div className="flex">
-                            <div className="h-[662px] w-[218px]">
-                                <h2 className="font-medium text-[20px] "> Фильтры</h2>
-                                <div className="h-[662px] w-[218px] bg-white rounded-[15px]">
-                                    <div className="p-[10px] flex flex-col w-[199px] gap-[15px]">
-                                        <div className="h-[42px]">
-                                            <span className="text-[14px] font-medium"> Поиск </span>
-                                            <Input value = {search} onChange={(e) => setSearch(e.target.value)} placeholder = "артикул или название товара" className="h-[24px] w-[198px] border-none shadow-none bg-[#F2F3F4] placeholder:font-medium placeholder:text-[12px] !text-[12px] !text-[#000000] px-[5px]"></Input>
-                                        </div>
-                                        <div className="h-[103px] w-[198px]">
-                                            <span className="text-[14px] font-medium"> Выбор периода </span>
-                                            <div className="h-[82px] w-[198px]">
-                                                <div className="flex flex-col gap-[7px]">
-                                                    <div>
-                                                        <DatePicker 
-                                                        startDate={startDate}
-                                                        endDate={endDate}
-                                                        onChange={(start, end) => {
-                                                            setStartDate(start);
-                                                            setEndDate(end);
-                                                            setSelectedPeriods([]);
-                                                        }}
-                                                        />
+					</header>
+					<main className='flex-1 overflow-auto p-[10px]'>
+						{selectedWarehouse?.id == null ? (
+							<div className='flex items-center justify-center font-medium text-center h-full text-[#9699A3] text-[40px]'>
+								<h1>выберите склад для отображения истории</h1>
+							</div>
+						) : (
+							<div className='flex'>
+								<div className='h-[662px] w-[218px]'>
+									<h2 className='font-medium text-[20px] '> Фильтры</h2>
+									<div className='h-[662px] w-[218px] bg-white rounded-[15px]'>
+										<div className='p-[10px] flex flex-col w-[199px] gap-[15px]'>
+											<div className='h-[42px]'>
+												<span className='text-[14px] font-medium'> Поиск </span>
+												<Input
+													value={search}
+													onChange={e => setSearch(e.target.value)}
+													placeholder='артикул или название товара'
+													className='h-[24px] w-[198px] border-none shadow-none bg-[#F2F3F4] placeholder:font-medium placeholder:text-[12px] !text-[12px] !text-[#000000] px-[5px]'
+												></Input>
+											</div>
+											<div className='h-[103px] w-[198px]'>
+												<span className='text-[14px] font-medium'>
+													{' '}
+													Выбор периода{' '}
+												</span>
+												<div className='h-[82px] w-[198px]'>
+													<div className='flex flex-col gap-[7px]'>
+														<div>
+															<DatePicker
+																startDate={startDate}
+																endDate={endDate}
+																onChange={(start, end) => {
+																	setStartDate(start)
+																	setEndDate(end)
+																	setSelectedPeriods([])
+																}}
+															/>
+														</div>
+														<div>
+															<ButtonGrid
+																selected={selectedPeriods}
+																onChange={periods => {
+																	setSelectedPeriods(periods)
+																	if (periods.length > 0) {
+																		setStartDate(undefined)
+																		setEndDate(undefined)
+																	}
+																}}
+															/>
+														</div>
+													</div>
+												</div>
+											</div>
+											<div className='h-[120px] w-[198px]'>
+												<span className='text-[14px] font-medium'>
+													{' '}
+													Зоны склада{' '}
+												</span>
+												<SelectableButtons
+													params={zones}
+													onSelect={setSelectedZone}
+													selected={selectedZone}
+													multiple
+												/>
+											</div>
+											<div className='h-[231px] w-[198px]'>
+												<span className='text-[14px] font-medium'>
+													{' '}
+													Категории товаров{' '}
+												</span>
+												<SelectableButtons
+													params={categories}
+													onSelect={setSelectedCategory}
+													selected={selectedCategory}
+													multiple
+												/>
+											</div>
+											<div className='h-[53px] w-[198px]'>
+												<span className='text-[14px] font-medium'>
+													{' '}
+													Статус{' '}
+												</span>
+												<div className='h-[35px] pl-[5px] bg-[#F2F3F4] gap-[5px] rounded-[5px] flex-col items-center'>
+													<div className='flex gap-[5px] items-center'>
+														<div className='flex gap-[2px] items-center'>
+															<Checkbox
+																checked={selectedStatuses.length === 0}
+																onCheckedChange={() => setSelectedStatuses([])}
+																className='history-checkbox cursor-pointer'
+															/>
+															<span className='text-[#000000] text-[12px]'>
+																все
+															</span>
+														</div>
+														<div className='flex gap-[2px] items-center'>
+															<Checkbox
+																checked={selectedStatuses.includes('ok')}
+																onCheckedChange={() => toggleStatus('ok')}
+																className='history-checkbox cursor-pointer'
+															/>
+															<span className='text-[#000000] text-[12px]'>
+																ок
+															</span>
+														</div>
+													</div>
+													<div className='flex items-center gap-[5px]'>
+														<div className='flex gap-[2px] items-center'>
+															<Checkbox
+																checked={selectedStatuses.includes('low')}
+																onCheckedChange={() => toggleStatus('low')}
+																className='history-checkbox cursor-pointer'
+															/>
+															<span className='text-[#000000] text-[12px]'>
+																низкий остаток
+															</span>
+														</div>
+														<div className='flex gap-[2px]  items-center'>
+															<Checkbox
+																checked={selectedStatuses.includes('critical')}
+																onCheckedChange={() => toggleStatus('critical')}
+																className='history-checkbox cursor-pointer'
+															/>
+															<span className='text-[#000000] text-[12px]'>
+																критично
+															</span>
+														</div>
+													</div>
+												</div>
+											</div>
+											<div className='flex h-[18px] w-[198px] gap-[4px]'>
+												<Button
+													onClick={resetFilters}
+													className='bg-[#FF4F12] text-[10px] hover:bg-[#e4420d] text-white h-[18px] w-[97px]'
+												>
+													<CloseLarge
+														fill='#FFFFFF'
+														className='w-[7px] h-[7px]'
+													/>
+													Cбросить
+												</Button>
+												<Button
+													onClick={applyFilters}
+													className='bg-[#7700FF] text-[10px] hover:bg-[#6500d8] text-white h-[18px] w-[97px]'
+												>
+													<CheckLarge
+														fill='#FFFFFF'
+														className='w-[7px] h-[7px]'
+													/>
+													Применить
+												</Button>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div className='flex flex-col pl-[10px] w-full  gap-[5px]'>
+									{/*Ультра заглушка, потом что-то нормальное напишу*/}
+									<div className='h-[77px]'>
+										<h2 className='font-medium text-[20px]'>
+											Сводная статистика
+										</h2>
+										<div className='h-[46px] bg-white rounded-[15px] flex items-center justify-between p-[10px]'>
+											<span className='text-[14px] font-light'>
+												всего проверок за период: 12375
+											</span>
+											<span className='text-[14px] font-light'>
+												уникальных товаров: 56
+											</span>
+											<span className='text-[14px] font-light'>
+												выявлено расхождений: 21
+											</span>
+											<span className='text-[14px] font-light'>
+												среднее время инвентаризации: 10 мин
+											</span>
+										</div>
+									</div>
+									<div>
+										<h2 className='font-medium text-[20px]'>
+											Историческая таблица
+										</h2>
+										<div className='h-[751px] bg-white rounded-[15px] pl-[10px] pr-[10px]'>
+											<DataTableHistory
+												data={filteredData}
+												columns={columns}
+												totalPages={totalPages}
+												page={page}
+												rowsPerPage={pageSize}
+												onPageChange={setPage}
+												onRowsPerPageChange={setPageSize}
+												isLoading={loading}
+												selectedRows={selectedRows}
+												setSelectedRows={setSelectedRows}
+												sortBy={sortBy} // из useInventoryHistory
+												sortOrder={sortOrder} // из useInventoryHistory
+												onSortChange={handleSort}
+											/>
+										</div>
+									</div>
+									<div className='flex items-center justify-end gap-[10px] pt-[10px]'>
+										<div className='flex gap-[5px]'>
+											<Button
+												className='history-export'
+												onClick={async () => {
+													if (!selectedWarehouse?.id) {
+														alert('Выберите склад')
+														return
+													}
+													if (selectedRows.length === 0) {
+														alert('Выберите хотя бы одну строку для экспорта')
+														return
+													}
 
-                                                    </div> 
-                                                    <div>
-                                                        <ButtonGrid
-                                                        selected={selectedPeriods}
-                                                        onChange={(periods) => {
-                                                            setSelectedPeriods(periods);
-                                                            if (periods.length > 0) {
-                                                            setStartDate(undefined);
-                                                            setEndDate(undefined);
-                                                            }
-                                                        }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="h-[120px] w-[198px]">
-                                            <span className="text-[14px] font-medium"> Зоны склада </span>
-                                            <SelectableButtons params={zones} onSelect={setSelectedZone} selected={selectedZone} multiple/>
-                                        </div>
-                                        <div className="h-[231px] w-[198px]">
-                                            <span className="text-[14px] font-medium"> Категории товаров </span>
-                                            <SelectableButtons params={categories} onSelect={setSelectedCategory} selected={selectedCategory} multiple/>
-                                        </div>
-                                        <div className="h-[53px] w-[198px]">
-                                            <span className="text-[14px] font-medium"> Статус </span>
-                                            <div className="h-[35px] pl-[5px] bg-[#F2F3F4] gap-[5px] rounded-[5px] flex-col items-center">
-                                                <div className="flex gap-[5px] items-center">
-                                                    <div className="flex gap-[2px] items-center">
-                                                        <Checkbox 
-                                                            checked={selectedStatuses.length === 0}  
-                                                            onCheckedChange={() => setSelectedStatuses([])}
-                                                            className="history-checkbox cursor-pointer"/> 
-                                                        <span className="text-[#000000] text-[12px]">
-                                                            все
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex gap-[2px] items-center">
-                                                        <Checkbox 
-                                                        checked={selectedStatuses.includes("ok")}
-                                                        onCheckedChange={() => toggleStatus("ok")}
-                                                        className="history-checkbox cursor-pointer"/> 
-                                                        <span className="text-[#000000] text-[12px]">
-                                                            ок
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-[5px]">
-                                                    <div className="flex gap-[2px] items-center">
-                                                        <Checkbox 
-                                                        checked={selectedStatuses.includes("low")} 
-                                                        onCheckedChange={() => toggleStatus("low")}
-                                                        className="history-checkbox cursor-pointer"/> 
-                                                        <span className="text-[#000000] text-[12px]">
-                                                            низкий остаток
-                                                        </span>                                         
-                                                    </div>
-                                                    <div className="flex gap-[2px]  items-center">
-                                                        <Checkbox 
-                                                        checked={selectedStatuses.includes("critical")} 
-                                                        onCheckedChange={() => toggleStatus("critical")}
-                                                        className="history-checkbox cursor-pointer"/> 
-                                                        <span className="text-[#000000] text-[12px]">
-                                                            критично
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex h-[18px] w-[198px] gap-[4px]">
-                                            <Button onClick={resetFilters} className="bg-[#FF4F12] text-[10px] hover:bg-[#e4420d] text-white h-[18px] w-[97px]">
-                                                <CloseLarge fill="#FFFFFF"className="w-[7px] h-[7px]"/>
-                                                Cбросить
-                                            </Button>
-                                            <Button onClick = {applyFilters} className="bg-[#7700FF] text-[10px] hover:bg-[#6500d8] text-white h-[18px] w-[97px]">
-                                                <CheckLarge fill="#FFFFFF"className="w-[7px] h-[7px]"/>
-                                                Применить
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex flex-col pl-[10px] w-full  gap-[5px]">
-                                {/*Ультра заглушка, потом что-то нормальное напишу*/}
-                                <div className="h-[77px]">
-                                    <h2 className="font-medium text-[20px]">Сводная статистика</h2>
-                                    <div className="h-[46px] bg-white rounded-[15px] flex items-center justify-between p-[10px]">
-                                        <span className="text-[14px] font-light">всего проверок за период: 12375</span>
-                                        <span className="text-[14px] font-light">уникальных товаров: 56</span>
-                                        <span className="text-[14px] font-light">выявлено расхождений: 21</span>
-                                        <span className="text-[14px] font-light">среднее время инвентаризации: 10 мин</span>
-                                    </div>
-                                </div>
-                                <div>
-                                    <h2 className="font-medium text-[20px]">Историческая таблица</h2>
-                                    <div className="h-[751px] bg-white rounded-[15px] pl-[10px] pr-[10px]">
-                                        <DataTableHistory
-                                            data={filteredData}
-                                            columns={columns}
-                                            totalPages={totalPages}
-                                            page={page}
-                                            rowsPerPage={pageSize}
-                                            onPageChange={setPage}
-                                            onRowsPerPageChange={setPageSize}
-                                            isLoading={loading}
-                                            selectedRows={selectedRows}
-                                            setSelectedRows={setSelectedRows}
-                                            sortBy={sortBy}               // из useInventoryHistory
-                                            sortOrder={sortOrder}         // из useInventoryHistory
-                                            onSortChange={handleSort} 
-                                        />
-                                    </div>
-                                </div>
-                                <div className="flex items-center justify-end gap-[10px] pt-[10px]">
-                                    <div className="flex gap-[5px]">
-                                    <Button
-                                        className="h-[30px] w-[187px] text-[12px] text-[#7700FF] bg-[#F7F0FF] border-[#7700FF] border-[1px] rounded-[10px] font-medium"
-                                        onClick={async () => {
-                                            if (!selectedWarehouse?.id) {
-                                            alert("Выберите склад");
-                                            return;
-                                            }
-                                            if (selectedRows.length === 0) {
-                                            alert("Выберите хотя бы одну строку для экспорта");
-                                            return;
-                                            }
+													try {
+														const res = await fetch(
+															`https://dev.rtk-smart-warehouse.ru/api/v1/inventory_history/inventory_history_export_to_xl/${selectedWarehouse.id}`,
+															{
+																method: 'POST',
+																headers: {
+																	'Content-Type': 'application/json',
+																	Authorization: `Bearer ${token}`,
+																},
+																body: JSON.stringify({
+																	record_ids: selectedRows,
+																}),
+															}
+														)
 
-                                            try {
-                                            const res = await fetch(
-                                                `https://dev.rtk-smart-warehouse.ru/api/v1/inventory_history/inventory_history_export_to_xl/${selectedWarehouse.id}`,
-                                                {
-                                                method: "POST",
-                                                headers: {
-                                                    "Content-Type": "application/json",
-                                                    Authorization: `Bearer ${token}`,
-                                                },
-                                                body: JSON.stringify({ record_ids: selectedRows }),
-                                                }
-                                            );
+														if (!res.ok) {
+															const text = await res.text()
+															console.error('Ошибка сервера:', text)
+															throw new Error('Ошибка при получении файла')
+														}
 
-                                            if (!res.ok) {
-                                                const text = await res.text();
-                                                console.error("Ошибка сервера:", text);
-                                                throw new Error("Ошибка при получении файла");
-                                            }
+														const blob = await res.blob()
 
-                                            const blob = await res.blob();
+														const disposition = res.headers.get(
+															'Content-Disposition'
+														)
+														let filename = 'Отчёт.xlsx'
+														if (
+															disposition &&
+															disposition.includes('filename=')
+														) {
+															filename = disposition
+																.split('filename=')[1]
+																.replace(/"/g, '')
+																.trim()
+														}
 
-                                            const disposition = res.headers.get("Content-Disposition");
-                                            let filename = "Отчёт.xlsx";
-                                            if (disposition && disposition.includes("filename=")) {
-                                                filename = disposition
-                                                .split("filename=")[1]
-                                                .replace(/"/g, "")
-                                                .trim();
-                                            }
+														const url = window.URL.createObjectURL(blob)
+														const a = document.createElement('a')
+														a.href = url
+														a.download = filename
+														document.body.appendChild(a)
+														a.click()
+														a.remove()
+														window.URL.revokeObjectURL(url)
+													} catch (err) {
+														console.error(err)
+														alert('Не удалось скачать файл')
+													}
+												}}
+											>
+												<Upload fill='#7700FF' className='h-[8px] w-[8px]' />
+												Экспорт в Excel
+											</Button>
 
-                                            const url = window.URL.createObjectURL(blob);
-                                            const a = document.createElement("a");
-                                            a.href = url;
-                                            a.download = filename;
-                                            document.body.appendChild(a);
-                                            a.click();
-                                            a.remove();
-                                            window.URL.revokeObjectURL(url);
-                                            } catch (err) {
-                                            console.error(err);
-                                            alert("Не удалось скачать файл");
-                                            }
-                                        }}
-                                        >
-                                            <Upload fill="#7700FF" className="h-[8px] w-[8px]"/>
-                                            Экспорт в Excel
-                                    </Button>
+											<Button
+												className='history-export'
+												onClick={async () => {
+													if (!selectedWarehouse?.id) {
+														alert('Выберите склад')
+														return
+													}
+													if (selectedRows.length === 0) {
+														alert('Выберите хотя бы одну строку для экспорта')
+														return
+													}
 
-                                    <Button
-                                        className="h-[30px] w-[187px] text-[12px] text-[#7700FF] bg-[#F7F0FF] border-[#7700FF] border-[1px] rounded-[10px] font-medium"
-                                        onClick={async () => {
-                                            if (!selectedWarehouse?.id) {
-                                            alert("Выберите склад");
-                                            return;
-                                            }
-                                            if (selectedRows.length === 0) {
-                                            alert("Выберите хотя бы одну строку для экспорта");
-                                            return;
-                                            }
+													try {
+														const res = await fetch(
+															`https://dev.rtk-smart-warehouse.ru/api/v1/inventory_history/inventory_history_export_to_pdf/${selectedWarehouse.id}`,
+															{
+																method: 'POST',
+																headers: {
+																	'Content-Type': 'application/json',
+																	Authorization: `Bearer ${token}`,
+																},
+																body: JSON.stringify({
+																	record_ids: selectedRows,
+																}),
+															}
+														)
 
-                                            try {
-                                            const res = await fetch(
-                                                `https://dev.rtk-smart-warehouse.ru/api/v1/inventory_history/inventory_history_export_to_pdf/${selectedWarehouse.id}`,
-                                                {
-                                                method: "POST",
-                                                headers: {
-                                                    "Content-Type": "application/json",
-                                                    Authorization: `Bearer ${token}`,
-                                                },
-                                                body: JSON.stringify({ record_ids: selectedRows }),
-                                                }
-                                            );
+														if (!res.ok) {
+															const text = await res.text()
+															console.error('Ошибка сервера:', text)
+															throw new Error('Ошибка при получении файла')
+														}
 
-                                            if (!res.ok) {
-                                                const text = await res.text();
-                                                console.error("Ошибка сервера:", text);
-                                                throw new Error("Ошибка при получении файла");
-                                            }
+														const blob = await res.blob()
 
-                                            const blob = await res.blob();
+														const disposition = res.headers.get(
+															'Content-Disposition'
+														)
+														let filename = 'Отчёт.pdf'
+														if (
+															disposition &&
+															disposition.includes('filename=')
+														) {
+															filename = disposition
+																.split('filename=')[1]
+																.replace(/"/g, '')
+																.trim()
+														}
 
-                                            const disposition = res.headers.get("Content-Disposition");
-                                            let filename = "Отчёт.pdf";
-                                            if (disposition && disposition.includes("filename=")) {
-                                                filename = disposition
-                                                .split("filename=")[1]
-                                                .replace(/"/g, "")
-                                                .trim();
-                                            }
+														const url = window.URL.createObjectURL(blob)
+														const a = document.createElement('a')
+														a.href = url
+														a.download = filename
+														document.body.appendChild(a)
+														a.click()
+														a.remove()
+														window.URL.revokeObjectURL(url)
+													} catch (err) {
+														console.error(err)
+														alert('Не удалось скачать файл')
+													}
+												}}
+											>
+												<Upload fill='#7700FF' className='h-[8px] w-[8px]' />
+												Экспорт в PDF
+											</Button>
+										</div>
+										<Button
+											onClick={async () => {
+												if (!selectedWarehouse?.id) {
+													alert('Выберите склад')
+													return
+												}
+												if (selectedRows.length === 0) {
+													alert(
+														'Выберите хотя бы одну строку для построения графика'
+													)
+													return
+												}
 
-                                            const url = window.URL.createObjectURL(blob);
-                                            const a = document.createElement("a");
-                                            a.href = url;
-                                            a.download = filename;
-                                            document.body.appendChild(a);
-                                            a.click();
-                                            a.remove();
-                                            window.URL.revokeObjectURL(url);
-                                            } catch (err) {
-                                            console.error(err);
-                                            alert("Не удалось скачать файл");
-                                            }
-                                        }}
-                                        >
-                                            <Upload fill="#7700FF" className="h-[8px] w-[8px]"/>
-                                            Экспорт в PDF
-                                        </Button>
-                                    </div>
-                                    <Button
-                                        onClick={async () => {
-                                            if (!selectedWarehouse?.id) {
-                                            alert("Выберите склад");
-                                            return;
-                                            }
-                                            if (selectedRows.length === 0) {
-                                            alert("Выберите хотя бы одну строку для построения графика");
-                                            return;
-                                            }
+												try {
+													const res = await fetch(
+														`https://dev.rtk-smart-warehouse.ru/api/v1/inventory_history/inventory_history_create_graph/${selectedWarehouse.id}`,
+														{
+															method: 'POST',
+															headers: {
+																'Content-Type': 'application/json',
+																Authorization: `Bearer ${token}`,
+															},
+															body: JSON.stringify({
+																record_ids: selectedRows,
+															}),
+														}
+													)
 
-                                            try {
-                                            const res = await fetch(
-                                                `https://dev.rtk-smart-warehouse.ru/api/v1/inventory_history/inventory_history_create_graph/${selectedWarehouse.id}`,
-                                                {
-                                                method: "POST",
-                                                headers: {
-                                                    "Content-Type": "application/json",
-                                                    Authorization: `Bearer ${token}`,
-                                                },
-                                                body: JSON.stringify({ record_ids: selectedRows }),
-                                                }
-                                            );
+													if (!res.ok) {
+														const text = await res.text()
+														console.error('Ошибка сервера:', text)
+														throw new Error('Ошибка при построении графика')
+													}
 
-                                            if (!res.ok) {
-                                                const text = await res.text();
-                                                console.error("Ошибка сервера:", text);
-                                                throw new Error("Ошибка при построении графика");
-                                            }
+													const json = await res.json()
+													const rawData = json.data || {}
 
-                                            const json = await res.json();
-                                            const rawData = json.data || {};
+													const normalizeDate = (iso: string) => {
+														const d = new Date(iso)
+														d.setMilliseconds(0)
+														return d.toISOString()
+													}
 
-                                            const normalizeDate = (iso: string) => {
-                                                const d = new Date(iso);
-                                                d.setMilliseconds(0);
-                                                return d.toISOString(); 
-                                            };
+													const allDates = new Set<string>()
+													Object.values(rawData).forEach((entries: any) => {
+														entries.forEach(([dateStr]: [string, number]) =>
+															allDates.add(normalizeDate(dateStr))
+														)
+													})
 
-                                            const allDates = new Set<string>();
-                                            Object.values(rawData).forEach((entries: any) => {
-                                                entries.forEach(([dateStr]: [string, number]) =>
-                                                allDates.add(normalizeDate(dateStr))
-                                                );
-                                            });
+													const sortedDates = Array.from(allDates).sort(
+														(a, b) =>
+															new Date(a).getTime() - new Date(b).getTime()
+													)
 
-                                            const sortedDates = Array.from(allDates).sort(
-                                                (a, b) => new Date(a).getTime() - new Date(b).getTime()
-                                            );
+													const merged: Record<string, any> = {}
+													const lastKnown: Record<string, number | null> = {}
 
-                                            const merged: Record<string, any> = {};
-                                            const lastKnown: Record<string, number | null> = {};
+													sortedDates.forEach(date => {
+														merged[date] = { date }
+														Object.keys(rawData).forEach(product => {
+															const entry = (
+																rawData[product] as [string, number][]
+															).find(([d]) => normalizeDate(d) === date)
 
-                                            sortedDates.forEach((date) => {
-                                                merged[date] = { date };
-                                                Object.keys(rawData).forEach((product) => {
-                                                const entry = (rawData[product] as [string, number][]).find(
-                                                    ([d]) => normalizeDate(d) === date
-                                                );
+															if (entry) {
+																const [, value] = entry
+																lastKnown[product] = value
+															}
 
-                                                if (entry) {
-                                                    const [, value] = entry;
-                                                    lastKnown[product] = value;
-                                                }
+															merged[date][product] =
+																lastKnown[product] !== undefined
+																	? lastKnown[product]
+																	: null
+														})
+													})
 
-                                                merged[date][product] =
-                                                    lastKnown[product] !== undefined ? lastKnown[product] : null;
-                                                });
-                                            });
+													const formattedData = Object.values(merged)
 
-                                            const formattedData = Object.values(merged);
-
-                                            setGraphData(formattedData);
-                                            setShowGraph(true);
-                                            } catch (err) {
-                                            console.error(err);
-                                            alert("Не удалось построить график");
-                                            }
-                                        }}
-                                        className="h-[30px] w-[187px] text-[12px] text-white bg-[#7700FF] rounded-[10px] font-medium"
-                                        >
-                                        <StatisticsLine fill="white" className="h-[6px] w-[11px]" />
-                                        Построить график
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    {showGraph && (
-                        <TrendGraph data={graphData} onClose={() => setShowGraph(false)} />
-                    )}
-                </main>
-            </div>
-        </div>
-    )
+													setGraphData(formattedData)
+													setShowGraph(true)
+												} catch (err) {
+													console.error(err)
+													alert('Не удалось построить график')
+												}
+											}}
+											className='history-chart-button'
+										>
+											<StatisticsLine
+												fill='white'
+												className='h-[6px] w-[11px]'
+											/>
+											Построить график
+										</Button>
+									</div>
+								</div>
+							</div>
+						)}
+						{showGraph && (
+							<TrendGraph
+								data={graphData}
+								onClose={() => setShowGraph(false)}
+							/>
+						)}
+					</main>
+				</div>
+			</div>
+		)
 }
 export default HistoryPage;

@@ -383,12 +383,12 @@ function ListPage() {
 		try {
 			await api.delete(`/robot/${robot.id}`)
 			setContextRobot(null)
-			toast.success(`Робот ${robot.id} успешно удалён`)
+			toast.success(`Робот "${robot.id}" успешно удалён`)
 			//обновляем список роботов
 			await fetchRobots()
 		} catch (err) {
 			console.error(err)
-			toast.error(`Не удалось удалить робота ${robot.id}`)
+			toast.error(`Не удалось удалить робота "${robot.id}"`)
 		} finally{
 			setLoadingInfo(false)
 		}

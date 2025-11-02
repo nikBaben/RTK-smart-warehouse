@@ -29,7 +29,7 @@ function DashboardPage(){
   return (
 		<div className='flex bg-[#F4F4F5] h-screen overflow-hidden'>
 			<div className='flex flex-col flex-1 ml-[60px]'>
-				<header className='header-style'>
+				<header className='header-style shrink-0'>
 					<span className='pagename-font'>Дашборд</span>
 					<div className='ml-auto flex items-center gap-4'>
 						<SelectWarehouse />
@@ -68,15 +68,15 @@ function DashboardPage(){
 							</section>
 							<section className='col-span-7 auto-rows-min space-y-[10px]'>
 								<div className='bg-transparent grid grid-cols-7 gap-3 col-span-2 w-full'>
-									<CriticalUnique/>
-									<Scanned24hCard/>
-									<StatusAvgCard/>
+									<CriticalUnique />
+									<Scanned24hCard />
+									<StatusAvgCard />
 								</div>
 								<div className='bg-transparent grid grid-cols-7 gap-3 col-span-2 w-full h-[200px]'>
 									<RobotActivityChart />
 									<div className='flex flex-col col-span-2 gap-3'>
-										<RobotsDataCard/>
-										<AvgBatteryCard/>
+										<RobotsDataCard />
+										<AvgBatteryCard />
 									</div>
 								</div>
 								<div className='scroll-padding bg-white rounded-[15px] pl-[10px] pt-[6px] pr-[10px] col-span-2 h-[239px]'>

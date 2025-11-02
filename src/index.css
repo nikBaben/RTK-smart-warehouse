@@ -322,3 +322,23 @@ div::-webkit-scrollbar-thumb {
 .refresh-button{
   @apply p-1 rounded-[5px] bg-[#DEDFE1] transition-all hover:brightness-90 h-[25px] w-[25px];
 }
+
+.big-list-item-container{
+  @apply flex justify-between items-center bg-[#F2F3F4] rounded-[10px] max-h-[60px] 
+  px-[10px] py-[10px] cursor-pointer transition-all border-[2px] border-transparent;
+}
+
+.supplies-export-excel{
+  @apply h-[40px] w-[187px] text-[16px] text-[#7700FF] bg-[#F7F0FF] border-[#7700FF] 
+  border-[1px] rounded-[10px] font-medium transition-all duration-200 hover:brightness-90;
+}
+
+.history-export{
+  @apply h-[30px] w-[187px] text-[12px] text-[#7700FF] bg-[#F7F0FF] border-[#7700FF] border-[1px] rounded-[10px] font-medium
+  transition-all duration-200 hover:brightness-90;
+}
+
+.history-chart-button{
+  @apply h-[30px] w-[187px] text-[12px] text-white bg-[#7700FF] rounded-[10px] font-medium
+  transition-all duration-200 hover:brightness-90;
+}
