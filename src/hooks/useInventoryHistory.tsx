@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-
-const BASE_URL = "https://dev.rtk-smart-warehouse.ru/api/v1";
+import api from "@/api/axios"; // твой общий axios-инстанс
 
 // ========================
 // 🔹 Типы
@@ -41,7 +40,7 @@ export type SortOrder = "asc" | "desc";
 
 // Новый формат ответа сервера
 export interface HistoryResponse {
-  data: any; // структура стала динамической, типизируем вручную ниже
+  data: any; // структура динамическая
 }
 
 // ========================
@@ -50,7 +49,6 @@ export interface HistoryResponse {
 const historyService = {
   async getFilteredHistory(
     warehouseId: string,
-    token: string,
     params: {
       page?: number;
       pageSize?: number;
@@ -93,15 +91,10 @@ const historyService = {
       page_size: pageSize,
     };
 
-    const response = await axios.post<HistoryResponse>(
-      `${BASE_URL}/inventory_history/get_filtered_history/${warehouseId}`,
-      payload,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
+    // Используем общий axios-инстанс (api)
+    const response = await api.post<HistoryResponse>(
+      `/inventory_history/get_filtered_history/${warehouseId}`,
+      payload
     );
 
     // Новый формат: [[[item, expected_count, difference]], total]
@@ -109,14 +102,11 @@ const historyService = {
     const nestedItems = rawData[0] || [];
     const total = rawData[1] || 0;
 
-    const items = nestedItems.map((entry: any) => {
-      const [item, expected, difference] = entry;
-      return {
-        ...item,
-        expected_count: expected ?? 0, // если null → 0
-        difference,
-      };
-    });
+    const items = nestedItems.map(([item, expected, difference]: any) => ({
+      ...item,
+      expected_count: expected ?? 0,
+      difference,
+    }));
 
     return { data: items, total };
   },
@@ -165,7 +155,7 @@ export function useInventoryHistory(
 
       try {
         const { data: historyData, total } =
-          await historyService.getFilteredHistory(warehouseId, token, {
+          await historyService.getFilteredHistory(warehouseId, {
             page,
             pageSize,
             search: filters?.search ?? "",
@@ -186,7 +176,6 @@ export function useInventoryHistory(
 
         setData(formatted);
         setTotal(total);
-        setError(null);
       } catch (err) {
         console.error("Ошибка при загрузке истории:", err);
         if (axios.isAxiosError(err) && err.response?.status === 442) {
