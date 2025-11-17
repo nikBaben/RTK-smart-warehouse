@@ -32,7 +32,10 @@ class InventoryHistoryService:
     async def get_inventory_history_by_warehouse_id(self, warehouse_id: str):
         inventory_history = await self.repo.get_all_by_warehouse_id(warehouse_id)
         if not inventory_history:
-            raise ValueError(f"История инвентаризации на скалде id '{warehouse_id}' не найдена.")
+            raise HTTPException(
+                status_code=404,
+                detail=f"История инвентаризации на скалде id '{warehouse_id}' не найдена."
+            )
         return inventory_history
     
     async def get_filtered_inventory_history(
@@ -55,9 +58,12 @@ class InventoryHistoryService:
         )
         
         if not inventory_history:
-            raise ValueError(
-                f"История инвентаризации на складе id '{warehouse_id}' "
-                f"с примененными фильтрами не найдена."
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"История инвентаризации на складе id '{warehouse_id}' "
+                    f"с примененными фильтрами не найдена."
+                )
             )
         return inventory_history
     
@@ -74,9 +80,9 @@ class InventoryHistoryService:
         )
         
         if not inventory_history:
-            raise ValueError(
-                f"История инвентаризации на складе id '{warehouse_id}' "
-                f"не найдена."
+            raise HTTPException(
+                status_code=404,
+                detail=f"История инвентаризации на складе id '{warehouse_id}' не найдена."
             )
         return inventory_history
     
@@ -93,9 +99,9 @@ class InventoryHistoryService:
         )
         
         if not inventory_history:
-            raise ValueError(
-                f"История инвентаризации на складе id '{warehouse_id}' "
-                f"не найдена."
+            raise HTTPException(
+                status_code=404,
+                detail=f"История инвентаризации на складе id '{warehouse_id}' не найдена."
             )
         return inventory_history
     
@@ -111,9 +117,9 @@ class InventoryHistoryService:
         )
         
         if not inventory_history:
-            raise ValueError(
-                f"История инвентаризации на складе id '{warehouse_id}' "
-                f"не найдена."
+            raise HTTPException(
+                status_code=404,
+                detail=f"История инвентаризации на складе id '{warehouse_id}' не найдена."
             )
         return inventory_history
     
@@ -127,25 +133,24 @@ class InventoryHistoryService:
         )
         
         if not inventory_history:
-            raise ValueError(
-                f"История инвентаризации на складе id '{warehouse_id}' "
-                f"не найдена."
+            raise HTTPException(
+                status_code=404,
+                detail=f"История инвентаризации на складе id '{warehouse_id}' не найдена."
             )
         return inventory_history
     
     async def inventory_history_unique_zones(
         self, 
         warehouse_id: str
-        ) -> List[str]:
-
+    ) -> List[str]:
         inventory_history = await self.repo.inventory_history_unique_zones(
             warehouse_id=warehouse_id,
         )
         
         if not inventory_history:
-            raise ValueError(
-                f"История инвентаризации на складе id '{warehouse_id}' "
-                f"не найдена."
+            raise HTTPException(
+                status_code=404,
+                detail=f"История инвентаризации на складе id '{warehouse_id}' не найдена."
             )
         return inventory_history
     

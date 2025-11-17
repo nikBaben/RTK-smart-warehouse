@@ -16,10 +16,10 @@ import {
 } from '@/components/ui/dialog'
 
 export function ExitDialogue(){
-	const { clearUser } = useUserStore()
+	const { logout } = useUserStore()
   const handleExit = async () => {
 		localStorage.removeItem('token')
-		clearUser()
+		logout()
     window.location.href = '/auth'
 	}
   return (

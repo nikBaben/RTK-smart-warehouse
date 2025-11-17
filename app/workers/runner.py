@@ -8,15 +8,15 @@ import time
 import traceback
 from contextlib import suppress
 from typing import List
-import contextlib
 
-os.environ.setdefault("SQLALCHEMY_DISABLE_CEXT", "1")  # <-- ключевая строка
+# Важно для стабильности greenlet/sqlalchemy
+os.environ.setdefault("SQLALCHEMY_DISABLE_CEXT", "1")
 
 # Диагностика/логи
 os.environ.setdefault("PYTHONUNBUFFERED", "1")
 os.environ.setdefault("PYTHONFAULTHANDLER", "1")
 
-#uvloop: ОТКЛЮЧЕНО по умолчанию из-за бага. Можете включить позже (USE_UVLOOP=1)
+# uvloop: ОТКЛЮЧЕНО по умолчанию (можно включить через USE_UVLOOP=1)
 USE_UVLOOP = os.getenv("USE_UVLOOP", "0") == "1"
 if USE_UVLOOP:
     try:
@@ -28,19 +28,20 @@ if USE_UVLOOP:
 else:
     print("ℹ️ uvloop disabled (USE_UVLOOP=0)", flush=True)
 
-#faulthandler — печатает стеки при фатальных падениях интерпретатора
+# faulthandler — стеки при падениях интерпретатора
 try:
     import faulthandler  # type: ignore
     faulthandler.enable(all_threads=True)
 except Exception:
     pass
 
-# Импорты приложения (после env)
+# -------------------- Импорты приложения (после env) --------------------
 from app.events.bus import EventBus
 import app.events.bus as bus_module
 
 from app.robot_emulator.emulator import run_robot_watcher_mproc
 
+# Стримеры/воркеры
 from app.ws.products_events import continuous_product_snapshot_streamer
 from app.ws.battery_events import continuous_robot_avg_streamer
 from app.ws.inventory_scans_streamer import continuous_inventory_scans_streamer
@@ -48,36 +49,27 @@ from app.ws.inventory_critical_streamer import continuous_inventory_critical_str
 from app.ws.inventory_status import continuous_inventory_status_avg_streamer
 from app.ws.robot_status_count_streamer import continuous_robot_status_count_streamer
 from app.ws.robot_activity_streamer import continuous_robot_activity_history_streamer
-from contextlib import asynccontextmanager
-from app.db.session import async_session
-from app.repositories.product_repo import ProductRepository
-from app.repositories.robot_history_repo import RobotHistoryRepository
-from app.repositories.inventory_history_repo import InventoryHistoryRepository
-from app.repositories.robot_repo import RobotRepository
+
+# Провайдеры репозиториев (через bundle) — важное: commit_on_exit=False (read-only)
+from app.repositories.bundle import (
+    product_repo_provider as bundle_product_repo_provider,
+    robot_history_repo_provider as bundle_robot_history_repo_provider,
+    inventory_history_repo_provider as bundle_inventory_history_repo_provider,
+    robot_repo_provider as bundle_robot_repo_provider,
+)
+
+# ------------------------------------------------------------------------
+
 REDIS_DSN = os.getenv("REDIS_DSN", "redis://myapp-redis:6379/0")
-WATCHER_INTERVAL = float(os.getenv("WATCHER_INTERVAL", "2"))
+
+# Дефолтные провайдеры репозиториев: сессия без begin(), без commit на выходе
+product_repo_provider = lambda: bundle_product_repo_provider(commit_on_exit=False)
+robot_history_repo_provider = lambda: bundle_robot_history_repo_provider(commit_on_exit=False)
+inventory_history_repo_provider = lambda: bundle_inventory_history_repo_provider(commit_on_exit=False)
+robot_repo_provider = lambda: bundle_robot_repo_provider(commit_on_exit=False)
 
 _SHUTDOWN = False
 
-@asynccontextmanager
-async def product_repo_provider():
-    async with async_session() as session:
-        yield ProductRepository(session)
-
-@asynccontextmanager
-async def robot_history_repo_provider():
-    async with async_session() as session:
-        yield RobotHistoryRepository(session)
-
-@asynccontextmanager
-async def inventory_history_repo_provider():
-    async with async_session() as session:
-        yield InventoryHistoryRepository(session)
-
-@asynccontextmanager
-async def robot_repo_provider():
-    async with async_session() as session:
-        yield RobotRepository(session)
 
 def _install_signal_handlers(loop: asyncio.AbstractEventLoop) -> None:
     def _graceful(signame: str) -> None:
@@ -98,32 +90,104 @@ def _loop_exception_handler(loop: asyncio.AbstractEventLoop, context: dict) -> N
     msg = context.get("message") or "Unhandled exception in event loop"
     exc = context.get("exception")
     print(f"💥 {msg}", flush=True)
+    task = context.get("task") or context.get("future")
+    if task:
+        print(f"   ↳ in: {task!r}", flush=True)
     if exc:
         traceback.print_exception(exc, file=sys.stderr)
         sys.stderr.flush()
 
 
-async def _run_task_group_once():
+async def _run_task_group_once() -> None:
+    # 1) подключаем EventBus один раз на группу задач
     bus = EventBus(REDIS_DSN)
     await bus.connect()
     bus_module.bus = bus  # type: ignore[attr-defined]
     print("🔌 EventBus connected", flush=True)
 
-    #Задачи
+    # 2) запускаем рабочие задачи
     tasks: List[asyncio.Task] = []
     try:
-        tasks.append(asyncio.create_task(run_robot_watcher_mproc()))
-        tasks.append(asyncio.create_task(continuous_product_snapshot_streamer(interval=60,use_ws_rooms=False), name="products_snapshot"))
-        tasks.append(asyncio.create_task(continuous_robot_avg_streamer(interval=60,repo_provider = robot_repo_provider, use_ws_rooms=False), name="robot_avg"))
-        tasks.append(asyncio.create_task(continuous_inventory_scans_streamer(interval=60,repo_provider = inventory_history_repo_provider, hours=24, use_ws_rooms=False), name="inventory_scans"))
-        tasks.append(asyncio.create_task(continuous_inventory_critical_streamer(interval=60,repo_provider = inventory_history_repo_provider, use_ws_rooms=False), name="inventory_critical"))
-        tasks.append(asyncio.create_task(continuous_inventory_status_avg_streamer(interval=60,repo_provider=product_repo_provider, use_ws_rooms=False), name="inventory_status_avg"))
-        tasks.append(asyncio.create_task(continuous_robot_status_count_streamer(interval=60,repo_provider= robot_repo_provider,use_ws_rooms=False), name="robot_status_count"))
-        tasks.append(asyncio.create_task(continuous_robot_activity_history_streamer(interval=600,repo_provider=robot_history_repo_provider,use_ws_rooms=False), name="robot_activity_history"))
+        # эмулятор/наблюдатель роботов (мультипроцессный)
+        tasks.append(asyncio.create_task(run_robot_watcher_mproc(), name="robot_watcher"))
+
+        # периодические стримеры
+        tasks.append(
+            asyncio.create_task(
+                continuous_product_snapshot_streamer(
+                    interval=10,
+                    repo_provider=product_repo_provider,
+                    use_ws_rooms=False,
+                ),
+                name="products_snapshot",
+            )
+        )
+        tasks.append(
+            asyncio.create_task(
+                continuous_robot_avg_streamer(
+                    interval=10,
+                    repo_provider=robot_repo_provider,
+                    use_ws_rooms=False,
+                ),
+                name="robot_avg",
+            )
+        )
+        tasks.append(
+            asyncio.create_task(
+                continuous_inventory_scans_streamer(
+                    interval=10,
+                    repo_provider=inventory_history_repo_provider,
+                    hours=24,
+                    use_ws_rooms=False,
+                ),
+                name="inventory_scans",
+            )
+        )
+        tasks.append(
+            asyncio.create_task(
+                continuous_inventory_critical_streamer(
+                    interval=10,
+                    repo_provider=inventory_history_repo_provider,
+                    use_ws_rooms=False,
+                ),
+                name="inventory_critical",
+            )
+        )
+        tasks.append(
+            asyncio.create_task(
+                continuous_inventory_status_avg_streamer(
+                    interval=10,
+                    repo_provider=product_repo_provider,
+                    use_ws_rooms=False,
+                ),
+                name="inventory_status_avg",
+            )
+        )
+        tasks.append(
+            asyncio.create_task(
+                continuous_robot_status_count_streamer(
+                    interval=10,
+                    repo_provider=robot_repo_provider,
+                    use_ws_rooms=False,
+                ),
+                name="robot_status_count",
+            )
+        )
+        tasks.append(
+            asyncio.create_task(
+                continuous_robot_activity_history_streamer(
+                    interval=600,
+                    repo_provider=robot_history_repo_provider,
+                    use_ws_rooms=False,
+                ),
+                name="robot_activity_history",
+            )
+        )
 
         print("🚀 worker: task group started", flush=True)
 
-        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+        # 3) ждём первой ошибки/завершения
+        done, _pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
 
         errors = []
         for t in done:
@@ -146,13 +210,12 @@ async def _run_task_group_once():
         print("🛑 worker: task group cancelled", flush=True)
         raise
     finally:
+        # 4) отменяем и дожидаемся всех задач
         for t in tasks:
-            if not t.done():
-                t.cancel()
-        for t in tasks:
-            with suppress(asyncio.CancelledError):
-                await t
+            t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
+        # 5) закрываем EventBus
         try:
             await bus.close()
             print("🔌 EventBus closed", flush=True)
@@ -179,10 +242,8 @@ async def _supervisor() -> None:
             print(f"💥 worker: task group crashed: {e}", flush=True)
 
         elapsed = time.time() - started
-        if elapsed > 10:
-            backoff = 1.0
-        else:
-            backoff = min(backoff * 2.0, backoff_max)
+        # быстрый рестарт → увеличиваем backoff; долгий цикл → сбрасываем
+        backoff = 1.0 if elapsed > 10 else min(backoff * 2.0, backoff_max)
 
         if _SHUTDOWN:
             break

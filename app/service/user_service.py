@@ -22,8 +22,13 @@ class UserService:
             
             if not user:
                 # Создаем нового пользователя
-                roles = user_info.get('realm_access', {}).get('roles', [])
-                user_role = roles[3] if len(roles) > 3 else 'user'
+                roles = set(user_info.get('realm_access', {}).get('roles', []) or [])
+                if "admin" in roles or "realm-admin" in roles:
+                    user_role = "admin"
+                elif "operator" in roles:
+                    user_role = "operator"
+                else:
+                    user_role = "user"
                 
                 user_create = UserCreate(
                     email=email,
@@ -45,24 +50,18 @@ class UserService:
     async def create_user_with_keycloak(self, user_create: UserCreateWithKeycloak, kkid: str):
         """Создать пользователя в БД и связать с Keycloak ID"""
         try:
-            user_create = UserCreate(
+            user_create_db = UserCreate(
                 email=user_create.email,
                 name=user_create.name,
                 role=user_create.role,
-                password_hash=get_password_hash(user_create.password)
+                password_hash=get_password_hash(user_create.password),
             )
-
-            # Создаем пользователя в БД
-            user = await self.user_repo.create(user_create)
-            
-            # Создаем связь с Keycloak
+            user = await self.user_repo.create(user_create_db)
             await self.kkid_user_repo.create(kkid, user.id)
-            
             return user
-        except Exception as e:
-            # Если произошла ошибка, откатываем сессию
-            await self.session.rollback()
-            raise e
+        except Exception:
+            # тут нет self.session, управление транзакциями в репозиториях
+            raise
 
     async def get_user_by_kkid(self, kkid: str):
         """Получить пользователя по Keycloak ID"""

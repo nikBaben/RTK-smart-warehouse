@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Tuple
 
 from sqlalchemy import text
@@ -34,7 +34,7 @@ async def predict_all_for_warehouse(
                     product_id=pid,
                     warehouse_id=warehouse_id,
                     horizon_days=horizon_days,
-                    as_of=datetime.utcnow(),
+                    as_of=datetime.now(timezone.utc),
                 )
                 if depletion:
                     results.append((pid, warehouse_id, depletion))
@@ -52,7 +52,7 @@ async def save_predictions(session: AsyncSession, results: List[Tuple[str, str, 
         return
 
     await session.execute(
-        text("DELETE FROM predict_at WHERE predicted_at < NOW() - INTERVAL '1 day'")
+        text("DELETE FROM predict_at WHERE predicted_at < NOW() - INTERВAL '1 day'")
     )
 
     for pid, wid, dt in results:

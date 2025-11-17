@@ -41,7 +41,6 @@ export function Navbar() {
 
 				<div className='flex flex-col items-center absolute bottom-[20.15px] w-[30px]'>
 					<nav className='flex gap-[26px] flex-col items-center'>
-						<NavItem icon={InformationStroke} label='Информация' to='/info' />
 						<NavItem icon={Settings} label='Настройки' to='/settings' />
 						<ExitDialogue />
 					</nav>

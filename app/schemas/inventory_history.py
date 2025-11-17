@@ -24,7 +24,7 @@ class InventoryHistoryRead(InventoryHistoryBase):
     id: str
     robot_id: Optional[str]
     warehouse_id: Optional[str]
-    last_update: Optional[datetime] = None
+    #last_update: Optional[datetime] = None
     created_at: datetime
 
 class InventoryHistoryFilters(BaseModel):

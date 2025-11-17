@@ -7,12 +7,14 @@
 body {
   font-family: "RostelecomBasis", system-ui, sans-serif;
   color: rgb(17 24 39);
-  background-color: rgb(249 250 251);
-  margin: 0;
+  background-color: #F2F3F4;
+  margin-bottom: 0;
+  padding-bottom: 0;
   min-width: 320px;
   scroll-behavior: smooth;
   min-height: 100vh;
 }
+
 div{
   scroll-behavior: smooth;
 }
@@ -112,11 +114,29 @@ div::-webkit-scrollbar-thumb {
   @media (min-width: 1090px) {
     font-size: 14px;
   }
-  @media (min-width: 1210px) {
+  @media (min-width: 1323px) {
     font-size: 18px;
   }
-  @media (min-width: 1400px) {
+}
+
+.dashboard-card-data{
+  @apply text-[28px] font-bold text-center;
+}
+
+.dashboard-avg-status-data{
+  @apply font-bold text-center;
+  font-size: 28px;
+  @media (min-width: 600px) {
     font-size: 18px;
+  }
+  @media (min-width: 1070px) {
+    font-size: 22px;
+  }
+  @media (min-width: 1230px) {
+    font-size: 26px;
+  }
+  @media (min-width: 1310px) {
+    font-size: 28px;
   }
 }
 
@@ -225,7 +245,7 @@ div::-webkit-scrollbar-thumb {
 }
 
 .spinner-load-container{
-  @apply flex items-center justify-center text-[20px] text-[#9699A3] w-full h-full;
+  @apply flex text-center items-center justify-center text-[20px] text-[#9699A3] w-full h-full;
 }
 
 .context-menu-delete{
@@ -280,5 +300,88 @@ div::-webkit-scrollbar-thumb {
 }
 
 .not-found-container{
-  @apply flex items-center justify-center font-medium text-center h-full text-[#9699A3] text-[24px];
+  @apply flex items-center justify-center font-medium 
+  bg-[#F2F3F4] rounded-[10px] p-5 text-center h-full text-[#9699A3] text-[24px];
+}
+
+.checkbox-styles{
+  @apply cursor-pointer shadow-none w-5 h-5 border-1 rounded-[5px] flex
+  bg-[#F2F3F4] border-[#F2F3F4] transition-colors duration-200 items-center justify-center
+  data-[state=checked]:bg-[#F2F3F4]
+  data-[state=checked]:text-[#7700FF]
+  data-[state=checked]:border-[#7700FF];                     
+}
+
+.settings-page-buttons{
+  @apply flex flex-1 h-[40px] border-[2px] text-[18px] items-center rounded-[10px] transition-all duration-200 hover:brightness-95;
+}
+
+.depleted-table-grid{
+  @apply flex items-center grid grid-cols-12 justify-between bg-[#F6F7F7] rounded-[10px] px-3 h-[54px];
+}
+
+.refresh-button{
+  @apply p-1 rounded-[5px] bg-[#DEDFE1] transition-all hover:brightness-90 h-[25px] w-[25px];
+}
+
+.big-list-item-container{
+  @apply flex justify-between items-center bg-[#F2F3F4] rounded-[10px] max-h-[60px] 
+  px-[10px] py-[10px] cursor-pointer transition-all border-[2px];
+}
+
+.supplies-export-excel{
+  @apply h-[40px] w-[187px] text-[16px] text-[#7700FF] bg-[#F7F0FF] border-[#7700FF] 
+  border-[1px] rounded-[10px] font-medium transition-all duration-200 hover:brightness-90;
+}
+
+.history-export{
+  @apply h-[30px] w-[187px] text-[12px] text-[#7700FF] bg-[#F7F0FF] border-[#7700FF] border-[1px] rounded-[10px] font-medium
+  transition-all duration-200 hover:brightness-90;
+}
+
+.history-chart-button{
+  @apply h-[30px] w-[187px] text-[12px] text-white bg-[#7700FF] rounded-[10px] font-medium
+  transition-all duration-200 hover:brightness-90;
+}
+
+.warehouse-list-name{
+  @apply font-medium text-black;
+  font-size: 20px;
+  @media (min-width: 600px) {
+    font-size: 12px;
+  }
+  @media (min-width: 800px) {
+    font-size: 14px;
+  }
+  @media (min-width: 910px) {
+    font-size: 18px;
+  }
+  @media (min-width: 1200px) {
+    font-size: 20px;
+  }
+}
+
+.warehouse-list-details{
+  @apply font-normal text-[#5A606D];
+  font-size: 14px;
+  @media (min-width: 600px) {
+    font-size: 8px;
+  }
+  @media (min-width: 800px) {
+    font-size: 10px;
+  }
+  @media (min-width: 1000px) {
+    font-size: 12px;
+  }
+  @media (min-width: 1200px) {
+    font-size: 14px;
+  }
+}
+
+.regis-button{
+  @apply w-[365px] h-[68px] rounded-[10px] text-[18px] text-[#7700FF] border-none bg-[#F7F0FF] shadow-none;
+}
+
+.login-add{
+  @apply w-[174px] h-[50px] rounded-[10px] text-[18px] bg-[#FFF1EC] text-[#FF4F12] shadow-none;
 }

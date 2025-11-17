@@ -197,25 +197,22 @@ def get_predict_service(
         warehouse_repo=warehouse_repo,
     )
 
-#Даёт ProductRepository с живой AsyncSession и гарантированно её закрывает.
-#Работает вне Depends/эндпоинтов.
 @asynccontextmanager
 async def product_repo_provider() -> AsyncIterator[ProductRepository]:
-    async with async_session() as session:  
+    async with async_session() as session:
         yield ProductRepository(session)
 
 @asynccontextmanager
 async def robot_history_repo_provider() -> AsyncIterator[RobotHistoryRepository]:
-    async with async_session() as session:  
+    async with async_session() as session:
         yield RobotHistoryRepository(session)
 
 @asynccontextmanager
 async def inventory_history_repo_provider() -> AsyncIterator[InventoryHistoryRepository]:
-    async with async_session() as session:  
+    async with async_session() as session:
         yield InventoryHistoryRepository(session)
 
 @asynccontextmanager
 async def robot_repo_provider() -> AsyncIterator[RobotRepository]:
-    async with async_session() as session:  
+    async with async_session() as session:
         yield RobotRepository(session)
-

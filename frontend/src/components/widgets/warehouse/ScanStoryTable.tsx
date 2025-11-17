@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { useSocketStore } from '@/store/useSocketStore'
 import { Spinner } from '@/components/ui/spinner'
 import { useWarehouseStore } from '@/store/useWarehouseStore'
+import { motion } from 'framer-motion'
 
 type TableRowData = {
 	scanned_at: string
@@ -76,9 +77,9 @@ export function ScanStoryTable() {
 			case 'low':
 				return 'bg-[#FDA610]'
 			case 'critical':
-				return 'bg-[#FF4F12]'
+				return 'bg-[#FF2626]'
 			default:
-				return 'bg-gray-400'
+				return 'bg-[#9699A3]'
 		}
 	}
 
@@ -87,11 +88,11 @@ export function ScanStoryTable() {
 			case 'ok':
 				return 'ОК'
 			case 'low':
-				return 'Низкий остаток'
+				return 'низкий остаток'
 			case 'critical':
-				return 'Критично'
+				return 'критично'
 			default:
-				return 'Неизвестен'
+				return 'неизвестен'
 		}
 	}
 
@@ -123,7 +124,11 @@ export function ScanStoryTable() {
 	]
 
 	return (
-		<div className='overflow-hidden rounded-[10px] bg-[#FFFFFF]'>
+		<motion.div
+			initial={{ opacity: 0 }}
+			animate={{ opacity: 1, y: 0 }}
+			className='overflow-hidden rounded-[10px] bg-[#FFFFFF]'
+		>
 			<div
 				className={cn(
 					'max-h-[196px] scroll-padding',
@@ -186,6 +191,6 @@ export function ScanStoryTable() {
 					</TableBody>
 				</Table>
 			</div>
-		</div>
+		</motion.div>
 	)
 }

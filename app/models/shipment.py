@@ -15,10 +15,11 @@ class Shipment(Base):
 
     id: Mapped[str] = mapped_column(String(50), primary_key=True)
     name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
-    warehouse_id: Mapped[str | None] = mapped_column(
+    warehouse_id = mapped_column(
         String(50),
-        ForeignKey("warehouses.id", ondelete="SET NULL"),
-        nullable=True,
+        ForeignKey("warehouses.id", ondelete="CASCADE"),
+        nullable=False,   # или True, если хотите SET NULL
+        index=True,
     )
 
     warehouse: Mapped["Warehouse"] = relationship(
@@ -44,12 +45,13 @@ class ShipmentItems(Base):
     __tablename__ = "shipment_items"
 
     id: Mapped[str] = mapped_column(String(50), primary_key=True)
-    shipment_id: Mapped[Optional[str]] = mapped_column(
+    shipment_id = mapped_column(
         String(50),
-        ForeignKey("shipments.id", ondelete="SET NULL", onupdate="CASCADE"),
+        ForeignKey("shipments.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )
+
     product_id: Mapped[Optional[str]] = mapped_column(
         String(50),
         ForeignKey("products.id", ondelete="SET NULL", onupdate="CASCADE"),

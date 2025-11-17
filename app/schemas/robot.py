@@ -21,7 +21,7 @@ class RobotCreate(BaseModel):
 
 class RobotRead(RobotBase):
     id: str
-    last_update: Optional[datetime] = None
+    #last_update: Optional[datetime] = None
     created_at: datetime
     warehouse_id: Optional[str]
 

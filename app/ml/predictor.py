@@ -1,231 +1,297 @@
 from __future__ import annotations
 
-import os
+import asyncio
 import logging
-from typing import Optional, List, Dict
-from datetime import datetime, timedelta
-
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Optional, Dict, Any, Tuple
+import numpy as np
 import pandas as pd
-from prophet import Prophet
-
-from app.ml.model_store import load_model
-from app.ml.train import train_for_product 
-from app.ml.data_access import fetch_snapshot_at, fetch_planned_incoming
 
 log = logging.getLogger("ml.predictor")
 
+from app.ml.data_access import (
+    fetch_outgoing_timeseries,
+    fetch_snapshot_at,
+    fetch_planned_incoming,
+)
+from app.ml.model_store import save_model, load_model_any
 
-def predict_depletion_with_model(
-    initial_stock: float,
-    planned_incoming_df: pd.DataFrame,
-    predicted_outgoing_df: pd.DataFrame,
-    freq: str = "D",
-) -> Optional[datetime]:
-    if initial_stock is None or initial_stock <= 0:
-        return None
-
-    incoming = (
-        planned_incoming_df.set_index(pd.to_datetime(planned_incoming_df["ds"]))["incoming"]
-        if not planned_incoming_df.empty else pd.Series(dtype=float)
-    )
-    outgoing = (
-        predicted_outgoing_df.set_index(pd.to_datetime(predicted_outgoing_df["ds"]))["yhat"]
-        if not predicted_outgoing_df.empty else pd.Series(dtype=float)
-    )
-
-    if incoming.empty and outgoing.empty:
-        return None
-
-    pieces = []
-    if not incoming.empty:
-        pieces.append(incoming)
-    if not outgoing.empty:
-        pieces.append(outgoing)
-    if not pieces:
-        return None
-
-    all_dates = pd.concat(pieces).index.unique().sort_values()
-    incoming = incoming.reindex(all_dates, fill_value=0)
-    outgoing = outgoing.reindex(all_dates, fill_value=0).clip(lower=0)
-
-    stock = float(initial_stock)
-    for date in all_dates:
-        stock += float(incoming.get(date, 0))
-        stock -= float(outgoing.get(date, 0))
-        if stock <= 0:
-            return date.to_pydatetime()
-    return None
+try:
+    from prophet import Prophet  # type: ignore
+except Exception:  # pragma: no cover
+    Prophet = None  # type: ignore
 
 
-# Предиктор на Prophet с fallback-моделью:
-#- Пытается загрузить персональную модель /app/models_store/{product_id}.pkl
-#- Если её нет, использует базовую default_model_path (например, PROD_DEMO.pkl)
-#- Если и её нет — обучает персональную модель "на лету"
+def _to_utc_naive(dt: datetime) -> datetime:
+    dt = dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 class Predictor:
-    def __init__(
-        self,
-        model: Optional[Prophet] = None,
-        model_path: Optional[str] = None,
-        default_model_path: Optional[str] = None,
-    ):
-        if default_model_path is None:
-            default_model_path = os.getenv("DEFAULT_MODEL_PATH", "/app/models_store/PROD_DEMO.pkl")
+    """
+    Персональная модель -> fallback default -> on-the-fly Prophet.
+    Возвращает дату истощения и, при необходимости, доверительные интервалы.
+    """
 
-        self.model: Optional[Prophet] = model
-        self.model_path = model_path
-        self.default_model_path = default_model_path
-        self.prediction: Optional[pd.DataFrame] = None
+    def __init__(self, model_path: str, default_model_path: Optional[str] = None):
+        self.model_path = Path(model_path)
+        self.default_model_path = Path(default_model_path) if default_model_path else None
+        self.model: Optional[Any] = None
+        self._train_ctx: Optional[Dict[str, Any]] = None
 
-        if model_path:
-            self._load_with_fallback(model_path, default_model_path)
+    # -------------------- загрузка / обучение --------------------
 
-    def _load_with_fallback(self, model_path: str, default_model_path: Optional[str]):
-        if os.path.exists(model_path):
-            self.model = load_model(model_path)
-            self.model_path = model_path
-            log.info(f"Loaded model: {model_path}")
+    async def _load_async(self) -> None:
+        """
+        Алгоритм:
+        1) Если есть персональная модель -> пробуем загрузить. Если неподходящая (нет .predict) — игнорируем.
+        2) Иначе пытаемся загрузить fallback.
+        3) Если и fallback нет — обучаем on-the-fly реальную Prophet-модель и сохраняем.
+        """
+        # 1) персональная
+        if self.model_path.exists():
+            try:
+                self.model = load_model_any(str(self.model_path))
+                log.info("Загружена персональная модель: %s (%s)", self.model_path, type(self.model))
+                if not hasattr(self.model, "predict"):
+                    log.warning("Персональная модель не поддерживает predict(); игнорирую и перехожу к fallback.")
+                    self.model = None
+            except Exception as e:
+                log.warning("Не удалось загрузить персональную модель %s: %s", self.model_path, e)
+                self.model = None
+
+        # 2) fallback
+        if self.model is None and self.default_model_path and self.default_model_path.exists():
+            try:
+                self.model = load_model_any(str(self.default_model_path))
+                log.info("Загружена fallback-модель: %s (%s)", self.default_model_path, type(self.model))
+                if not hasattr(self.model, "predict"):
+                    log.warning("Fallback-модель не поддерживает predict(); буду обучать on-the-fly.")
+                    self.model = None
+            except Exception as e:
+                log.warning("Не удалось загрузить fallback-модель %s: %s", self.default_model_path, e)
+                self.model = None
+
+        # 3) on-the-fly
+        if self.model is None:
+            log.warning("Model %s not found/usable and no valid fallback. Training on the fly...", self.model_path)
+            await self._train_and_store(self.model_path)
+            if self.model_path.exists():
+                try:
+                    self.model = load_model_any(str(self.model_path))
+                    log.info("On-the-fly модель обучена и загружена: %s", self.model_path)
+                except Exception as e:
+                    log.error("On-the-fly модель сохранена, но не загружается: %s", e)
+                    self.model = None
+
+    async def _train_and_store(self, target_path: Path) -> None:
+        """
+        Реальное on-the-fly обучение Prophet по отгрузкам товара.
+        Требует self._train_ctx c product_id, warehouse_id, freq.
+        Сохраняем через joblib (см. model_store).
+        """
+        ctx = self._train_ctx or {}
+        product_id: Optional[str] = ctx.get("product_id")
+        warehouse_id: Optional[str] = ctx.get("warehouse_id")
+        freq: str = ctx.get("freq", "D")
+
+        if Prophet is None:
+            log.warning("Prophet недоступен — пропускаю on-the-fly обучение.")
+            return
+        if not product_id:
+            log.warning("Нет product_id в train_ctx — пропускаю on-the-fly обучение.")
             return
 
-        if default_model_path and os.path.exists(default_model_path):
-            self.model = load_model(default_model_path)
-            self.model_path = default_model_path
-            log.warning(f"Using fallback model: {default_model_path}")
+        try:
+            df = await fetch_outgoing_timeseries(
+                product_id=product_id,
+                warehouse_id=warehouse_id,
+                start=None,
+                end=None,
+                freq=freq,
+            )
+        except Exception as e:  # pragma: no cover
+            log.exception("Не удалось получить временной ряд отгрузок для обучения: %s", e)
             return
 
-        log.warning(f"Model {model_path} not found and no fallback model. Training on the fly...")
-        product_id = os.path.basename(model_path).replace(".pkl", "")
-        import asyncio
-        asyncio.run(train_for_product(product_id, model_path))
-        self.model = load_model(model_path)
-        self.model_path = model_path
-        log.info(f"Trained and loaded fresh model: {model_path}")
+        if df is None or df.empty or len(df) < 10:
+            log.warning("Недостаточно данных для on-the-fly обучения (%s): %s точек.", product_id, 0 if df is None else len(df))
+            return
 
-    #Прогноз исходящих (спроса) на горизонт days.
-    #Возвращает DataFrame ['ds','yhat','yhat_lower','yhat_upper'] за будущие дни.
-    def predict_outgoing(self, horizon_days: int = 30) -> pd.DataFrame:
-        if self.model is None:
-            if self.model_path:
-                self._load_with_fallback(self.model_path, self.default_model_path)
-        if self.model is None:
-            raise RuntimeError("Model not loaded")
+        train_df = df.copy()
+        train_df["ds"] = pd.to_datetime(train_df["ds"]).dt.tz_localize(None)
+        train_df["y"] = train_df["y"].astype(float)
 
-        future = self.model.make_future_dataframe(periods=horizon_days, freq="D")
-        forecast = self.model.predict(future)
-        self.prediction = forecast.tail(horizon_days)[["ds", "yhat", "yhat_lower", "yhat_upper"]]
-        return self.prediction
+        try:
+            # interval_width=0.8 даст надежные lower/upper -> пригодятся для P10/P90
+            m = Prophet(yearly_seasonality=True, weekly_seasonality=True, interval_width=0.8)
+            # при желании: m.add_country_holidays("RU")
+            m.fit(train_df)
+            save_model(m, str(target_path))
+            log.info("On-the-fly модель обучена и сохранена: %s", target_path)
+        except Exception as e:  # pragma: no cover
+            log.exception("Ошибка обучения/сохранения Prophet: %s", e)
+
+    # -------------------- публичная загрузка --------------------
+
+    def load(self) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            raise RuntimeError("Predictor.load() вызван из активного event loop. Используйте `await predictor.load_async()`.")
+        else:
+            asyncio.run(self._load_async())
+
+    async def load_async(self) -> None:
+        await self._load_async()
+
+    # -------------------- утилиты для симуляции --------------------
+
+    @staticmethod
+    def _simulate_depletion(
+        current_stock: float,
+        outgoing: pd.Series,
+        incoming: pd.Series,
+    ) -> Optional[datetime]:
+        stock = float(current_stock)
+        for ds, out in outgoing.sort_index().items():
+            inc = float(incoming.get(ds, 0.0))
+            stock += inc
+            stock -= float(out)
+            if stock <= 0:
+                return pd.to_datetime(ds).to_pydatetime().replace(tzinfo=timezone.utc)
+        return None
+
+    # -------------------- инференс --------------------
 
     async def predict_depletion_date(
         self,
         product_id: str,
-        warehouse_id: Optional[str] = None,
-        horizon_days: int = 30,
+        warehouse_id: Optional[str],
+        horizon_days: int,
         as_of: Optional[datetime] = None,
+        freq: str = "D",
     ) -> Optional[datetime]:
-
+        """
+        P50 (медианная) дата истощения.
+        """
         if as_of is None:
-            as_of = datetime.utcnow()
-        # делаем as_of tz-naive, чтобы сравнения с БД не падали
-        if as_of.tzinfo is not None:
-            as_of = pd.to_datetime(as_of).tz_localize(None).to_pydatetime()
+            as_of = datetime.now(timezone.utc)
+        as_of_naive_utc = _to_utc_naive(as_of)
 
-        # снимок остатков на as_of
-        initial_stock = await fetch_snapshot_at(product_id, warehouse_id, as_of)
-        if initial_stock is None or initial_stock <= 0:
-            # если нет запаса — считаем, что истощение уже сейчас
-            return as_of
-
-        # плановые приходы в [as_of, as_of + horizon]
-        start = as_of
-        end = as_of + timedelta(days=horizon_days)
-        planned_incoming = await fetch_planned_incoming(product_id, warehouse_id, start, end)
-
-        predicted_outgoing = self.predict_outgoing(horizon_days)
-
-        return predict_depletion_with_model(initial_stock, planned_incoming, predicted_outgoing)
-
-    def get_predict_as_list(self) -> List[Dict]:
-        if self.prediction is None:
-            raise RuntimeError("No prediction available. Call predict_outgoing() first.")
-        return [
-            {
-                "ds": pd.to_datetime(row["ds"]).isoformat(),
-                "yhat": float(row["yhat"]),
-                "yhat_lower": float(row["yhat_lower"]),
-                "yhat_upper": float(row["yhat_upper"]),
-            }
-            for _, row in self.prediction.iterrows()
-        ]
-
-    def get_predict_as_dataframe(self) -> pd.DataFrame:
-        if self.prediction is None:
-            raise RuntimeError("No prediction available. Call predict_outgoing() first.")
-        return self.prediction
-
-    def _simulate_depletion(self, initial_stock: float,
-                            planned_incoming_df: pd.DataFrame,
-                            outgoing_series: pd.Series) -> Optional[datetime]:
-        """Имитация: накапливаем stock += incoming - outgoing, ищем первую дату ≤ 0."""
-        incoming = (planned_incoming_df.set_index(pd.to_datetime(planned_incoming_df["ds"]))["incoming"]
-                    if planned_incoming_df is not None and not planned_incoming_df.empty
-                    else pd.Series(dtype=float))
-
-        parts = []
-        if not incoming.empty: parts.append(incoming)
-        if not outgoing_series.empty: parts.append(outgoing_series)
-        if not parts:
+        # контекст on-the-fly
+        self._train_ctx = {"product_id": product_id, "warehouse_id": warehouse_id, "freq": freq}
+        if self.model is None:
+            await self._load_async()
+        if self.model is None or not hasattr(self.model, "predict"):
+            log.warning("Нет пригодной модели для прогноза (product_id=%s): верну None.", product_id)
             return None
-        all_idx = pd.concat(parts).index.unique().sort_values()
 
-        incoming = incoming.reindex(all_idx, fill_value=0.0)
-        outgoing = outgoing_series.reindex(all_idx, fill_value=0.0).clip(lower=0.0)
+        current_stock = await fetch_snapshot_at(
+            product_id=product_id,
+            warehouse_id=warehouse_id,
+            at_time=as_of,
+        )
+        if current_stock is None:
+            log.warning("Нет снимка остатков для товара %s / склада %s", product_id, warehouse_id)
+            return None
 
-        stock = float(initial_stock)
-        for dt in all_idx:
-            stock += float(incoming.get(dt, 0.0))
-            stock -= float(outgoing.get(dt, 0.0))
-            if stock <= 0:
-                ts = pd.to_datetime(dt).to_pydatetime()
-                return ts.replace(tzinfo=None)
-        return None
+        end = as_of_naive_utc + timedelta(days=horizon_days)
+        incoming_df = await fetch_planned_incoming(
+            product_id=product_id,
+            warehouse_id=warehouse_id,
+            start=as_of_naive_utc,
+            end=end,
+            freq=freq,
+        )
+        if incoming_df is None or incoming_df.empty:
+            incoming_df = pd.DataFrame({"ds": [], "incoming": []})
+        incoming_df["ds"] = pd.to_datetime(incoming_df["ds"]).dt.tz_localize(None)
+        incoming_df = incoming_df.set_index("ds")["incoming"].astype(float)
 
-    async def predict_depletion_with_confidence(self,
-                                                product_id: str,
-                                                warehouse_id: Optional[str],
-                                                horizon_days: int = 60,
-                                                as_of: Optional[datetime] = None):
+        future = pd.DataFrame({"ds": pd.date_range(as_of_naive_utc + timedelta(days=1), end, freq=freq)})
+        if future.empty:
+            return None
+        future["ds"] = pd.to_datetime(future["ds"]).dt.tz_localize(None)
+
+        forecast = self.model.predict(future)
+        if "yhat" not in forecast.columns:
+            log.warning("Прогноз модели не содержит yhat (product_id=%s)", product_id)
+            return None
+
+        outgoing_p50 = forecast.set_index("ds")["yhat"].clip(lower=0.0)
+        return self._simulate_depletion(current_stock, outgoing_p50, incoming_df)
+
+    async def predict_depletion_with_confidence(
+        self,
+        product_id: str,
+        warehouse_id: Optional[str],
+        horizon_days: int,
+        as_of: Optional[datetime] = None,
+        freq: str = "D",
+        within_days: Optional[int] = None,
+    ) -> Tuple[Optional[datetime], Optional[datetime], Optional[datetime], Optional[float]]:
+        """
+        Возвращает (P50, P10, P90, p_deplete_within).
+        P10 — «ранняя» дата (используем более высокий спрос => yhat_upper),
+        P90 — «поздняя» дата (используем более низкий спрос => yhat_lower).
+        p_deplete_within — вероятность истощения за within_days (если передан), иначе None.
+        """
         if as_of is None:
-            as_of = datetime.utcnow()
+            as_of = datetime.now(timezone.utc)
+        as_of_naive_utc = _to_utc_naive(as_of)
 
-        if as_of.tzinfo is not None:
-            as_of = as_of.astimezone(tz=None).replace(tzinfo=None)
+        # контекст on-the-fly
+        self._train_ctx = {"product_id": product_id, "warehouse_id": warehouse_id, "freq": freq}
+        if self.model is None:
+            await self._load_async()
+        if self.model is None or not hasattr(self.model, "predict"):
+            log.warning("Нет пригодной модели для прогноза (product_id=%s): верну None.", product_id)
+            return (None, None, None, None)
 
-        initial = await fetch_snapshot_at(product_id, warehouse_id, as_of)
-        if initial is None or initial <= 0:
-            return None, None, None, None
+        current_stock = await fetch_snapshot_at(product_id, warehouse_id, at_time=as_of)
+        if current_stock is None:
+            log.warning("Нет снимка остатков для товара %s / склада %s", product_id, warehouse_id)
+            return (None, None, None, None)
 
-        start = as_of
-        end = as_of + timedelta(days=horizon_days)
-        planned_incoming = await fetch_planned_incoming(product_id, warehouse_id, start, end)
+        end = as_of_naive_utc + timedelta(days=horizon_days)
+        incoming_df = await fetch_planned_incoming(product_id, warehouse_id, start=as_of_naive_utc, end=end, freq=freq)
+        if incoming_df is None or incoming_df.empty:
+            incoming_df = pd.DataFrame({"ds": [], "incoming": []})
+        incoming_df["ds"] = pd.to_datetime(incoming_df["ds"]).dt.tz_localize(None)
+        incoming_s = incoming_df.set_index("ds")["incoming"].astype(float)
 
-        # прогноз исходящих
-        forecast = self.predict_outgoing(horizon_days)  # содержит ds,yhat,yhat_lower,yhat_upper
-        f = forecast.set_index(pd.to_datetime(forecast["ds"]))
-        # Чем выше спрос → тем раньше истощение.
-        series_p50 = f["yhat"]
-        series_fast = f["yhat_upper"]   # выше расход → раньше (назовём p10)
-        series_slow = f["yhat_lower"]   # ниже расход → позже (назовём p90)
+        future = pd.DataFrame({"ds": pd.date_range(as_of_naive_utc + timedelta(days=1), end, freq=freq)})
+        if future.empty:
+            return (None, None, None, None)
+        future["ds"] = pd.to_datetime(future["ds"]).dt.tz_localize(None)
 
-        p50 = self._simulate_depletion(initial, planned_incoming, series_p50)
-        p10 = self._simulate_depletion(initial, planned_incoming, series_fast)
-        p90 = self._simulate_depletion(initial, planned_incoming, series_slow)
+        forecast = self.model.predict(future)
+        cols = forecast.columns
+        if not {"yhat", "yhat_lower", "yhat_upper"}.issubset(set(cols)):
+            # если модель обучена без интервалов — вернём только p50
+            outgoing_p50 = forecast.set_index("ds")["yhat"].clip(lower=0.0)
+            p50 = self._simulate_depletion(current_stock, outgoing_p50, incoming_s)
+            return (p50, None, None, None)
 
-        # Простая «достоверность»: 1.0 если даже при низком спросе (p90) истощение в горизонте,
-        # 0.5 если только медиана попадает, 0.0 если даже медиана не попала.
-        if p90 and p90 <= end:
-            p_within = 1.0
-        elif p50 and p50 <= end:
-            p_within = 0.5
-        else:
-            p_within = 0.0
+        f = forecast.set_index("ds")
+        outgoing_p50 = f["yhat"].clip(lower=0.0)
+        outgoing_p10 = f["yhat_upper"].clip(lower=0.0)  # большая отгрузка -> раньше исчерпание
+        outgoing_p90 = f["yhat_lower"].clip(lower=0.0)  # меньшая отгрузка -> позже исчерпание
 
-        return p50, p10, p90, float(p_within)
+        p50 = self._simulate_depletion(current_stock, outgoing_p50, incoming_s)
+        p10 = self._simulate_depletion(current_stock, outgoing_p10, incoming_s)
+        p90 = self._simulate_depletion(current_stock, outgoing_p90, incoming_s)
+
+        # простая оценка p(deplete within N days): доля квантилей, истощающихся раньше дедлайна
+        prob_within: Optional[float] = None
+        if within_days is not None:
+            deadline = (as_of_naive_utc + timedelta(days=within_days)).replace(tzinfo=timezone.utc)
+            paths = [p for p in [p10, p50, p90] if p is not None]
+            if paths:
+                prob_within = sum(1 for d in paths if d <= deadline) / len(paths)
+
+        return (p50, p10, p90, prob_within)

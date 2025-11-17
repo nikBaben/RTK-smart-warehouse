@@ -9,9 +9,23 @@ class ShipmentRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def create(self, *, id: str, warehouse_id: Optional[str], name: Optional[str],
-                     scheduled_at, shipped_at: Optional[object], quantity: int, status: Optional[object],
-                     customer: Optional[str], notes: Optional[str]) -> Shipment:
+    async def create(
+        self,
+        *,
+        id: str,
+        warehouse_id: Optional[str],
+        name: Optional[str],
+        scheduled_at,
+        shipped_at: Optional[object],
+        quantity: int,
+        status: Optional[object],
+        customer: Optional[str],
+        notes: Optional[str],
+    ) -> Shipment:
+        # Жёсткая валидация, чтобы не допустить NOT NULL violation на уровне БД
+        if not warehouse_id:
+            raise ValueError("warehouse_id обязателен для создания Shipment")
+
         sh = Shipment(
             id=id,
             warehouse_id=warehouse_id,
@@ -25,6 +39,7 @@ class ShipmentRepository:
         )
         async with self.session.begin():
             self.session.add(sh)
+            # refresh после фиксации begin-транзакции в порядке — идентификатор уже задан вручную
             await self.session.refresh(sh)
         return sh
 
@@ -38,7 +53,7 @@ class ShipmentRepository:
             select(Shipment).where(Shipment.warehouse_id == warehouse_id)
         )
         return result.scalars().all()
-    
+
     async def delete(self, id: str) -> bool:
         stmt = delete(Shipment).where(Shipment.id == id)
         result = await self.session.execute(stmt)

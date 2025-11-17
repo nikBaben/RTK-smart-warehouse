@@ -6,6 +6,7 @@ class DeliveryStatus(str, Enum):
     arrived = "arrived"
     canceled = "canceled"
     rescheduled = "rescheduled"
+    delivered = "delivered" 
 
 
 class ShipmentStatus(str, Enum):

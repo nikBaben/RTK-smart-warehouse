@@ -51,24 +51,30 @@ const SelectableButtons: React.FC<SelectableButtonsProps> = ({
 
   return (
     <div className="rounded-[5px] bg-[#F2F3F4] flex flex-col gap-[2px]">
-      {params.map((param, index) => {
-        const active = isSelected(param);
-        return (
-          <Button
-            key={index}
-            onClick={() => handleToggle(param)}
-            className={`flex items-center justify-between w-[198px] h-[24px] text-[12px] font-medium cursor-pointer text-black rounded-[5px] shadow-none p-[2px] transition-all
-              ${
-                active
-                  ? "border border-purple-600 bg-white"
-                  : "border border-transparent bg-[#F2F3F4]"
-              }`}
-          >
-            {param}
-            {active && <Check className="w-3 h-3 mr-1 text-[#7700FF]" />}
-          </Button>
-        );
-      })}
+        {params.length === 0 ? (
+          <div className="text-gray-500 text-[12px] text-center py-1">
+            Нет параметров
+          </div>
+        ) : (
+          params.map((param, index) => {
+            const active = isSelected(param);
+            return (
+              <Button
+                key={index}
+                onClick={() => handleToggle(param)}
+                className={`flex items-center justify-between w-[198px] h-[24px] text-[12px] font-medium cursor-pointer text-black rounded-[5px] shadow-none p-[2px] transition-all
+                  ${
+                    active
+                      ? "border border-purple-600 bg-white"
+                      : "border border-transparent bg-[#F2F3F4]"
+                  }`}
+              >
+                {param}
+                {active && <Check className="w-3 h-3 mr-1 text-[#7700FF]" />}
+              </Button>
+            );
+          })
+        )}
     </div>
   );
 };

@@ -90,20 +90,27 @@ class WarehouseRepository:
         return warehouse
     
     async def delete(self, id: str):
-        warehouse = await self.session.scalar(
-            select(Warehouse).where(Warehouse.id == id)
-        )
-
-        if not warehouse:
-            raise ValueError(f"Склад с id '{id}' не найден.")
-
-        await self.session.delete(warehouse)
-
         try:
-            await self.session.commit()
+            async with self.session.begin():  # сам сделает commit/rollback
+                # По возможности блокируем строку, чтобы не было гонок
+                warehouse = await self.session.get(
+                    Warehouse, id,
+                    options=(selectinload(Warehouse.robots), selectinload(Warehouse.products),selectinload(Warehouse.shipments)),
+                )
+                if not warehouse:
+                    raise ValueError(f"Склад с id '{id}' не найден.")
+
+                await self.session.delete(warehouse)
+
+                # Явно «всплывём» ошибки целостности до коммита
+                await self.session.flush()
         except IntegrityError as e:
-            await self.session.rollback()
-            raise e
+            # Полезно вывести имя ограничения/детали от Postgres
+            diag = getattr(getattr(e, "orig", None), "diag", None)
+            constraint = getattr(diag, "constraint_name", None)
+            detail = getattr(diag, "message_detail", None)
+            # Логируйте constraint/detail здесь
+            raise
 
     async def get_all(self, limit: int = 100, offset: int = 0) -> list[Warehouse]:
         stmt = (

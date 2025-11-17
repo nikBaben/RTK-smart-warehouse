@@ -220,6 +220,18 @@ class ProductRepository:
         )
         row = res.first()
         return row[0] if row else None
+    
+    async def get_nam(self, product_id: str) -> Optional[str]:
+        """
+        Возвращает имя товара по product_id.
+        Если товара нет — возвращает None.
+        """
+        stmt = select(Product.name).where(Product.id == product_id)
+
+        result = await self.session.execute(stmt)
+        row = result.scalar_one_or_none()
+
+        return row
 
     async def required_delivery(self, product_id: str) -> Optional[int]:
         result = await self.session.execute(

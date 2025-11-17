@@ -68,6 +68,7 @@ class RobotRepository:
             .options(
                 noload(Robot.warehouse),
                 noload(Robot.history),
+                noload(Robot.robot_history),
                 load_only(
                     Robot.id,
                     Robot.status,
