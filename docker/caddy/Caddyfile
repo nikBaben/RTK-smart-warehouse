@@ -1,0 +1,77 @@
+# APPLICATION
+{$APP_DOMAIN} {
+
+    encode zstd gzip
+
+
+    log {
+        output stdout
+        format json
+    }
+
+
+    header {
+
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+        X-Content-Type-Options "nosniff"
+
+        X-Frame-Options "SAMEORIGIN"
+
+        Referrer-Policy "strict-origin-when-cross-origin"
+
+        -Server
+    }
+
+    # FASTAPI
+    @backend path /api* /docs* /redoc* /openapi.json
+
+    handle @backend {
+
+        reverse_proxy api:8000 {
+
+            transport http {
+
+                dial_timeout 5s
+
+                response_header_timeout 60s
+            }
+
+        }
+
+    }
+
+
+    # FRONTEND
+    handle {
+
+        reverse_proxy frontend:80
+    }
+
+}
+
+
+# KEYCLOAK
+{$KEYCLOAK_DOMAIN} {
+
+    encode zstd gzip
+
+
+    log {
+        output stdout
+        format json
+    }
+
+
+    header {
+
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+        X-Content-Type-Options "nosniff"
+
+        -Server
+    }
+
+
+    reverse_proxy keycloak:8080
+}

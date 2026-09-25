@@ -1,0 +1,86 @@
+services:
+  db:
+    ports:
+      - "127.0.0.1:5433:5432"
+
+  redis:
+    ports:
+      - "127.0.0.1:6380:6379"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+
+    volumes:
+      - .:/backend
+
+    ports:
+      - "127.0.0.1:8000:8000"
+
+    command:
+      - uvicorn
+      - backend.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+
+    volumes:
+      - .:/backend
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+
+    volumes:
+      - .:/backend
+
+  keycloak-db:
+    ports:
+      - "127.0.0.1:5434:5432"
+
+  keycloak:
+    command:
+      - start-dev
+
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  frontend:
+    image: node:22-alpine
+
+    restart: unless-stopped
+
+    init: true
+
+    working_dir: /frontend
+
+    volumes:
+      - ./frontend:/frontend
+      - frontend_node_modules:/frontend/node_modules
+
+    command:
+      - sh
+      - -c
+      - npm ci && npm run dev -- --host 0.0.0.0 --port 5173
+
+    ports:
+      - "127.0.0.1:5173:5173"
+
+    networks:
+      - app
+
+
+volumes:
+  frontend_node_modules:

@@ -1,0 +1,91 @@
+services:
+  api:
+    command:
+      - uvicorn
+      - backend.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --proxy-headers
+      - --forwarded-allow-ips=*
+      - --workers
+      - "${UVICORN_WORKERS:-2}"
+
+    stop_grace_period: 30s
+
+  worker:
+    stop_grace_period: 30s
+
+  scheduler:
+    stop_grace_period: 30s
+
+  keycloak:
+    command:
+      - start
+
+  frontend:
+    image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE is required}
+
+    restart: unless-stopped
+
+    init: true
+
+    expose:
+      - "80"
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    networks:
+      - app
+
+  caddy:
+    image: caddy:2-alpine
+
+    restart: unless-stopped
+
+    init: true
+
+    ports:
+      - "80:80"
+      - "443:443"
+
+    env_file:
+      - ${ENV_FILE:-.env.prod}
+
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+
+      - caddy_data:/data
+      - caddy_config:/config
+
+    depends_on:
+      api:
+        condition: service_healthy
+
+      frontend:
+        condition: service_started
+
+      keycloak:
+        condition: service_started
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    networks:
+      - app
