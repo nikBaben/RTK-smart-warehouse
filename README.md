@@ -1,6 +1,6 @@
 # RTK Smart Warehouse
 <p align="center">
-  <img src="./docs/RostelecomLogo (2).png" alt="Smart Warehouse RTK banner" width="100%" />
+  <img src="./docs/RostelecomLogo.png" alt="Smart Warehouse RTK banner" width="100%" />
 </p>
 
 <h1 align="center">Rostelecom Smart Warehouse</h1>
