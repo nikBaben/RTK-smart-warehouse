@@ -64,7 +64,7 @@ export const WarehouseList: FC<Props> = ({
 						<div
 							onClick={() => onSelect(wh)}
 							onContextMenu={() => onContextMenu?.(wh)}
-							className={`big-list-item-container
+							className={`flex justify-between items-center bg-[#F2F3F4] rounded-[10px] max-h-[60px] px-[10px] py-[10px] cursor-pointer transition-all border-[2px]
                 ${
 									selectedWarehouse?.id === wh.id
 										? 'border-[#7700FF]'
@@ -72,13 +72,15 @@ export const WarehouseList: FC<Props> = ({
 								}`}
 						>
 							<div className='flex items-center'>
-								<span className='warehouse-list-name'>{wh.name}</span>
+								<span className='text-[20px] font-medium text-black'>
+									{wh.name}
+								</span>
 							</div>
 							<div className='text-right space-y-0'>
-								<div className='warehouse-list-details'>
-									{wh.address}
+								<div className='text-[14px] font-normal text-[#5A606D]'>
+									адрес: {wh.address}
 								</div>
-								<div className='warehouse-list-details'>
+								<div className='text-[14px] font-normal text-[#5A606D]'>
 									текущее количество товаров: {wh.products_count}
 								</div>
 							</div>

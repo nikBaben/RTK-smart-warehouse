@@ -1,0 +1,84 @@
+name: rtk-smart-warehouse-dev
+
+x-dev-backend: &dev-backend
+  image: rtk-smart-warehouse-backend:dev
+  build:
+    context: .
+    target: development
+  env_file: [.env.dev]
+  environment:
+    KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-dev-service-admin}
+    KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-dev-service-password}
+  volumes:
+    - ./backend:/backend/backend
+    - ./tests:/backend/tests
+    - ./alembic:/backend/alembic
+    - ./alembic.ini:/backend/alembic.ini:ro
+    - ./models_store:/backend/models_store
+
+services:
+  dev-init:
+    <<: *dev-backend
+    restart: "no"
+    command: [sh, -c, "alembic upgrade head && python -m backend.dev_bootstrap"]
+    environment:
+      DEV_BOOTSTRAP: "1"
+      KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-dev-service-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-dev-service-password}
+      DEV_LOGIN_EMAIL: ${DEV_LOGIN_EMAIL:-admin@example.com}
+      DEV_LOGIN_PASSWORD: ${DEV_LOGIN_PASSWORD:-dev-admin-123}
+    depends_on:
+      db:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks: [app, data]
+  db:
+    ports: ["127.0.0.1:${DEV_DB_PORT:-5433}:5432"]
+  redis:
+    ports: ["127.0.0.1:${DEV_REDIS_PORT:-6380}:6379"]
+  api:
+    <<: *dev-backend
+    depends_on:
+      dev-init:
+        condition: service_completed_successfully
+    ports: ["127.0.0.1:${DEV_API_PORT:-8000}:8000"]
+    command: [uvicorn, backend.main:app, --host, 0.0.0.0, --port, "8000", --reload, --reload-dir, /backend/backend]
+  worker:
+    <<: *dev-backend
+    depends_on:
+      dev-init:
+        condition: service_completed_successfully
+  scheduler:
+    <<: *dev-backend
+    depends_on:
+      dev-init:
+        condition: service_completed_successfully
+  keycloak-db:
+    ports: ["127.0.0.1:${DEV_KEYCLOAK_DB_PORT:-5434}:5432"]
+  keycloak:
+    command: [start-dev]
+    environment:
+      KC_HOSTNAME_STRICT: "false"
+    ports: ["127.0.0.1:${DEV_KEYCLOAK_PORT:-8080}:8080"]
+  frontend:
+    image: rtk-smart-warehouse-frontend:dev
+    build:
+      context: ./frontend
+      target: development
+    restart: unless-stopped
+    init: true
+    environment:
+      API_PROXY_TARGET: http://api:8000
+    volumes:
+      - ./frontend/src:/frontend/src
+      - ./frontend/public:/frontend/public
+      - ./frontend/index.html:/frontend/index.html:ro
+      - ./frontend/vite.config.ts:/frontend/vite.config.ts:ro
+    ports: ["127.0.0.1:${DEV_FRONTEND_PORT:-5173}:5173"]
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://127.0.0.1:5173/]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks: [app]

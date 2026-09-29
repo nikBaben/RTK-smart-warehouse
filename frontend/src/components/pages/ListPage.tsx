@@ -41,16 +41,14 @@ import {
 
 
 function ListPage() {
-	const token = localStorage.getItem('token') || sessionStorage.getItem('token')
 	//-----ОБРАБОТКА СОСТОЯНИЙ-----
 	const { user } = useUserStore()
 
 	const [openAdd, setOpenAdd] = useState(false)
 	const [openEdit, setOpenEdit] = useState(false)
-	const [contextRobot, setContextRobot] = useState<Robot | null>(null)
-	const [contextProduct, setContextProduct] = useState<Robot | null>(null)
-	const [addLoading, setAddLoading] = useState(false)
-		
+	const [, setContextRobot] = useState<Robot | null>(null)
+	const [, setContextProduct] = useState<Robot | null>(null)
+
 	const {
 		warehouses,
 		loading,
@@ -110,10 +108,10 @@ function ListPage() {
 	}
 
 	const [loadingInfo, setLoadingInfo] = useState(false)
-	const [contextWarehouse, setContextWarehouse] = useState<Warehouse>()
+	const [, setContextWarehouse] = useState<Warehouse>()
 	/* 	const [error, setError] = useState<string | null>(null) */
 
-	let denyAdminAccess = !(user?.role === 'operator')
+	const denyAdminAccess = !['admin', 'operator'].includes(user?.role ?? '')
 	useEffect(() => {
 		fetchWarehouses()
 		setSelectedWarehouse(null)
@@ -237,7 +235,7 @@ function ListPage() {
 
 	const handleAddProduct = async (e: React.FormEvent) => {
 		e.preventDefault()
-		setAddLoading(true)
+
 		if (!selectedWarehouse) {
 			alert('Сначала выберите склад')
 			return
@@ -280,8 +278,6 @@ function ListPage() {
 			console.error('Ошибка при добавлении товара:', error)
 			toast.error('Не удалось добавить товар')
 			setLoadingInfo(false)
-		} finally{
-			setAddLoading(false)
 		}
 	}
 
@@ -386,12 +382,12 @@ function ListPage() {
 		try {
 			await api.delete(`/robot/${robot.id}`)
 			setContextRobot(null)
-			toast.success(`Робот "${robot.id}" успешно удалён`)
+			toast.success(`Робот ${robot.id} успешно удалён`)
 			//обновляем список роботов
 			await fetchRobots()
 		} catch (err) {
 			console.error(err)
-			toast.error(`Не удалось удалить робота "${robot.id}"`)
+			toast.error(`Не удалось удалить робота ${robot.id}`)
 		} finally{
 			setLoadingInfo(false)
 		}
@@ -718,37 +714,15 @@ function ListPage() {
 																		<SelectItem value='Комплектующие'>
 																			Комплектующие
 																		</SelectItem>
-																		<SelectItem value='Сетевое оборудование'>
-																			Сетевое оборудование
-																		</SelectItem>
-																		<SelectItem value='Драгоценные металлы'>
-																			Драгоценные металлы
-																		</SelectItem>
-																		<SelectItem value='Оружие'>
-																			Оружие
-																		</SelectItem>
-																		<SelectItem value='Еда'>Еда</SelectItem>
-																		<SelectItem value='Заморозка'>
-																			Заморозка
-																		</SelectItem>
-																		<SelectItem value='Другое'>
-																			Другое
-																		</SelectItem>
 																	</SelectContent>
 																</Select>
 															</div>
-															<div className='grid bg-white p-[10px] rounded-[10px]'>
+															<div className='grid gap-3 bg-white p-[10px] rounded-[10px]'>
 																<Label
 																	className='section-title'
 																	htmlFor='current_position'
 																>
 																	Где расположен товар?
-																</Label>
-																<Label className='input-description'>
-																	Это поле отвечает за позицию товара на складе
-																	и отдел. Вводите координаты в формате "A-Z,
-																	1-50" 1-9 - погрузка, 10-39 - хранение, 40-50
-																	- разгрузка
 																</Label>
 																<Input
 																	className='dialog-input-placeholder-text'
@@ -771,10 +745,10 @@ function ListPage() {
 															<Button
 																type='submit'
 																className='w-[50%] rounded-[10px] text-[18px] text-white font-medium bg-[#7700FF] cursor-pointer transition-all hover:brightness-90'
-																disabled={addLoading}
+																disabled={loading}
 															>
 																<Check className='!h-5 !w-5' />
-																{addLoading ? 'Добавление...' : 'Подтвердить'}
+																{loading ? 'Добавление...' : 'Подтвердить'}
 															</Button>
 														</DialogFooter>
 													</form>
@@ -927,22 +901,6 @@ function ListPage() {
 																			<SelectItem value='Комплектующие'>
 																				Комплектующие
 																			</SelectItem>
-																			<SelectItem value='Сетевое оборудование'>
-																				Сетевое оборудование
-																			</SelectItem>
-																			<SelectItem value='Драгоценные металлы'>
-																				Драгоценные металлы
-																			</SelectItem>
-																			<SelectItem value='Оружие'>
-																				Оружие
-																			</SelectItem>
-																			<SelectItem value='Еда'>Еда</SelectItem>
-																			<SelectItem value='Заморозка'>
-																				Заморозка
-																			</SelectItem>
-																			<SelectItem value='Другое'>
-																				Другое
-																			</SelectItem>
 																		</SelectContent>
 																	</Select>
 																</div>
@@ -957,7 +915,7 @@ function ListPage() {
 																		className='dialog-input-placeholder-text'
 																		id='current_position'
 																		name='current_position'
-																		value={`${editedProduct?.current_shelf}, ${editedProduct?.current_row}`}
+																		value={`${editedProduct?.current_row}, ${editedProduct?.current_shelf}`}
 																		onChange={handleProductEditChange}
 																		placeholder='Координаты сектора, в формате 1-50, A-Z'
 																		required

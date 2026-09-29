@@ -4,8 +4,6 @@ import { toast } from 'sonner'
 import { useUserStore } from '@/store/useUserStore'
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import ChevronDown from '@atomaro/icons/24/navigation/ChevronDown';
-import { Switch } from "@/components/ui/switch";
 import SignOut from '@atomaro/icons/24/navigation/SignOut';
 import CheckLarge from '@atomaro/icons/24/navigation/CheckLarge';
 import CloseLarge from '@atomaro/icons/24/navigation/CloseLarge';
@@ -21,15 +19,7 @@ import {
 } from '@/components/ui/select'
 
 function SettingsPage(){
-	const token = localStorage.getItem('token') || sessionStorage.getItem
-  const { logout } = useUserStore()
-	const handleExit = async () => {
-		localStorage.removeItem('token')
-		logout()
-		window.location.href = '/auth'
-	}
-
-
+  
 	/* const [showNotifications, setShowNotifications] = useState(false); */
 	/* const [email, setEmail] = useState('') */
 	const [loading, setLoading] = useState(false)
@@ -132,7 +122,7 @@ function SettingsPage(){
 									</div>
 								</div>
 								<span className='flex items-center'>
-									{user?.role === 'operator'
+									{user?.role === 'admin' ? 'администратор' : user?.role === 'operator'
 										? 'оператор склада'
 										: 'пользователь'}
 								</span>
@@ -149,7 +139,6 @@ function SettingsPage(){
 											id='first_name'
 											name='first_name'
 											value={form.first_name || ''}
-											placeholder='Владимир'
 											onChange={e => handleChange('first_name', e.target.value)}
 										></Input>
 									</div>
@@ -160,18 +149,16 @@ function SettingsPage(){
 											id='last_name'
 											name='last_name'
 											value={form.last_name}
-											placeholder='Петров'
 											onChange={e => handleChange('last_name', e.target.value)}
 										></Input>
 									</div>
 									<div className='flex flex-col'>
 										<Label className='section-title'>Логин</Label>
 										<Label className='input-description'>
-											Ваша рабочая почта. Если вы хотите сменить e-mail,
-											напишите в нашу техподдержку
+											Укажите свою почту, чтобы мы могли Вас идентифицировать
 										</Label>
 										<Input
-											className='main-input !text-[16px]  pointer-events-none cursor-not-allowed'
+											className='main-input !text-[16px]'
 											id='login'
 											name='login'
 											placeholder='voenmeh@gmail.com'
@@ -199,33 +186,31 @@ function SettingsPage(){
 										</Select>
 									</div>
 									<div className='flex gap-[10px]'>
-										<Button
-											onClick={handleExit}
-											className='settings-page-buttons border-[#FF4F12] text-[#FF4F12] bg-[#FFF1EC]'
-										>
+										<Button className='flex-1 h-[40px] bg-white border-[2px] border-[#FF4F12] text-[#FF4F12] text-[18px] rounded-[10px]'>
 											<SignOut
 												fill='#FF4F12'
-												className='h-[14px] w-auto mb-[2px]'
+												className='h-[14px] w-auto'
 											></SignOut>
 											Выйти
 										</Button>
 										<Button
-											className='settings-page-buttons border-[#5A606D] text-[#5A606D] bg-[#F2F3F4]'
+											className='flex-1 h-[40px] bg-white border-[2px] border-[#5A606D] text-[#5A606D] text-[18px] rounded-[10px]'
 											onClick={handleReset}
 										>
 											<CloseLarge
 												fill='#5A606D'
-												className='h-[14px] w-auto mb-[2px]'
+												className='h-[14px] w-auto'
 											></CloseLarge>
 											Отменить
 										</Button>
 										<Button
 											onClick={handleSave}
-											className='settings-page-buttons border-[#7700FF] text-[#7700FF] bg-[#F7F0FF]'
+											disabled={loading}
+											className='flex-1 h-[40px] bg-white border-[2px] border-[#7700FF] text-[#7700FF] text-[18px] rounded-[10px]'
 										>
 											<CheckLarge
 												fill='#7700FF'
-												className='h-[14px] w-auto mb-[2px]'
+												className='h-[14px] w-auto'
 											></CheckLarge>
 											Сохранить
 										</Button>

@@ -1,4 +1,3 @@
-import React, { useEffect } from "react";
 import { Button } from "../ui/button";
 import CheckLarge from "@atomaro/icons/24/navigation/CheckLarge";
 import CloseLarge from "@atomaro/icons/24/navigation/CloseLarge";
@@ -8,7 +7,6 @@ import {
 	Dialog,
 	DialogClose,
 	DialogContent,
-	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
@@ -16,15 +14,15 @@ import {
 } from '@/components/ui/dialog'
 
 export function ExitDialogue(){
-	const { logout } = useUserStore()
+	const { clearUser } = useUserStore()
   const handleExit = async () => {
 		localStorage.removeItem('token')
-		logout()
+		clearUser()
     window.location.href = '/auth'
 	}
   return (
 		<Dialog>
-			<DialogTrigger>
+			<DialogTrigger asChild>
 				<button title='Выход' className='transition-transform'>
 					<Release
 						fill='#9CA3AF'
