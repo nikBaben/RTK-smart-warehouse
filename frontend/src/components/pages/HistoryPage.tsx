@@ -29,12 +29,14 @@ import Upload from '@atomaro/icons/24/action/Upload';
 
 
 function HistoryPage(){
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
+  const getStatusColor = (status?: string) => {
+    switch (status?.toLowerCase()) {
       case "ok":
         return "bg-[#0ACB5B]";
+      case "low":
       case "низкий остаток":
         return "bg-[#FDA610]";
+      case "critical":
       case "критично":
         return "bg-[#FF2626]";
       default:
@@ -79,11 +81,11 @@ function HistoryPage(){
         try {
         const [zonesRes, categoriesRes] = await Promise.all([
             axios.get(
-            `https://dev.rtk-smart-warehouse.ru/api/v1/inventory_history/inventory_history_unique_zones/${selectedWarehouse.id}`,
+            `/api/v1/inventory_history/inventory_history_unique_zones/${selectedWarehouse.id}`,
             { headers: { Authorization: `Bearer ${token}` } }
             ),
             axios.get(
-            `https://dev.rtk-smart-warehouse.ru/api/v1/inventory_history/inventory_history_unique_categories/${selectedWarehouse.id}`,
+            `/api/v1/inventory_history/inventory_history_unique_categories/${selectedWarehouse.id}`,
             { headers: { Authorization: `Bearer ${token}` } }
             ),
         ]);
@@ -113,6 +115,7 @@ function HistoryPage(){
     page,
     pageSize,
     totalPages,
+    total,
     setPage,
     setPageSize,
         } = useInventoryHistory(
@@ -351,18 +354,15 @@ function HistoryPage(){
                                 </div>
                             </div>
                             <div className="flex flex-col pl-[10px] w-full  gap-[5px]">
-                                {/*Ультра заглушка, потом что-то нормальное напишу*/}
                                 <div className="h-[77px]">
                                     <h2 className="font-medium text-[20px]">Сводная статистика</h2>
                                     <div className="h-[46px] bg-white rounded-[15px] flex items-center justify-between p-[10px]">
-                                        <span className="text-[14px] font-light">всего проверок за период: 12375</span>
-                                        <span className="text-[14px] font-light">уникальных товаров: 56</span>
-                                        <span className="text-[14px] font-light">выявлено расхождений: 21</span>
-                                        <span className="text-[14px] font-light">среднее время инвентаризации: 10 мин</span>
+                                        <span className="text-[14px] font-light">всего записей по фильтру: {total}</span>
                                     </div>
                                 </div>
                                 <div>
                                     <h2 className="font-medium text-[20px]">Историческая таблица</h2>
+                                    {error && <p role="alert" className="text-red-600">{error}</p>}
                                     <div className="h-[751px] bg-white rounded-[15px] pl-[10px] pr-[10px]">
                                         <DataTableHistory
                                             data={filteredData}
@@ -397,7 +397,7 @@ function HistoryPage(){
 
                                             try {
                                             const res = await fetch(
-                                                `https://dev.rtk-smart-warehouse.ru/api/v1/inventory_history/inventory_history_export_to_xl/${selectedWarehouse.id}`,
+                                                `/api/v1/inventory_history/inventory_history_export_to_xl/${selectedWarehouse.id}`,
                                                 {
                                                 method: "POST",
                                                 headers: {
@@ -457,7 +457,7 @@ function HistoryPage(){
 
                                             try {
                                             const res = await fetch(
-                                                `https://dev.rtk-smart-warehouse.ru/api/v1/inventory_history/inventory_history_export_to_pdf/${selectedWarehouse.id}`,
+                                                `/api/v1/inventory_history/inventory_history_export_to_pdf/${selectedWarehouse.id}`,
                                                 {
                                                 method: "POST",
                                                 headers: {
@@ -516,7 +516,7 @@ function HistoryPage(){
 
                                             try {
                                             const res = await fetch(
-                                                `https://dev.rtk-smart-warehouse.ru/api/v1/inventory_history/inventory_history_create_graph/${selectedWarehouse.id}`,
+                                                `/api/v1/inventory_history/inventory_history_create_graph/${selectedWarehouse.id}`,
                                                 {
                                                 method: "POST",
                                                 headers: {

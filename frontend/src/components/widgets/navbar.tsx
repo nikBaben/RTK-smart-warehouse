@@ -1,4 +1,3 @@
-import { useState } from "react";
 import UploadCSV from "./UploadCSV";
 import Logo from "/src/assets/logos/RTKlogo.svg";
 import Home from "@atomaro/icons/24/action/Home";
@@ -7,14 +6,11 @@ import MenuPlusBullets from "@atomaro/icons/24/navigation/MenuPlusBullets";
 import Settings from '@atomaro/icons/24/action/Settings';
 import DeliveryBox from '@atomaro/icons/24/business/DeliveryBox'
 import InformationStroke from '@atomaro/icons/24/alert/InformationStroke'
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { ExitDialogue } from "./ExitDialogue";
-import { InfoIcon } from "lucide-react";
 
 
 export function Navbar() {
-	const [showExit, setShowExit] = useState(false);
-  	const navigate = useNavigate();
   	return (
 			<div className='w-[60px] h-screen bg-[#272F3D] flex flex-col items-center fixed top-0 left-0 z-[1000]'>
 				<div className='w-[25px] h-[60px] flex flex-col items-center justify-center'>

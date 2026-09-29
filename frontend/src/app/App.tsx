@@ -7,7 +7,6 @@ import {
 
 import { Navbar } from "@/components/widgets/navbar";
 import { Toaster } from '@/components/ui/sonner'
-import { useState } from 'react'
 import DashboardPage from '@/components/pages/DashboardPage'
 import  AuthPage  from '@/components/pages/AuthPage';
 import HistoryPage from "@/components/pages/HistoryPage";

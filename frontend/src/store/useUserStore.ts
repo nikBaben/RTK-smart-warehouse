@@ -30,11 +30,9 @@ export const useUserStore = create<UserState>()(
 		}),
 		{
 			name: 'user-storage',
-			// сохраняем минимально (например, только id/email) если нужно
+			// Keep the display name and role so a page reload preserves the UI session.
 			partialize: state => ({
-				user: state.user
-					? { id: state.user.id, email: state.user.email }
-					: null,
+				user: state.user,
 			}),
 		}
 	)

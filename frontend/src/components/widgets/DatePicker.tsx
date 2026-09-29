@@ -1,6 +1,5 @@
 "use client"
 
-import * as React from "react"
 import { format } from "date-fns"
 import ChevronDown from '@atomaro/icons/24/navigation/ChevronDown';
 import { Button } from "@/components/ui/button"

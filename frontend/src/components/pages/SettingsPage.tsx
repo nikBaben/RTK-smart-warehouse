@@ -4,8 +4,6 @@ import { toast } from 'sonner'
 import { useUserStore } from '@/store/useUserStore'
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import ChevronDown from '@atomaro/icons/24/navigation/ChevronDown';
-import { Switch } from "@/components/ui/switch";
 import SignOut from '@atomaro/icons/24/navigation/SignOut';
 import CheckLarge from '@atomaro/icons/24/navigation/CheckLarge';
 import CloseLarge from '@atomaro/icons/24/navigation/CloseLarge';
@@ -21,7 +19,6 @@ import {
 } from '@/components/ui/select'
 
 function SettingsPage(){
-	const token = localStorage.getItem('token')
   
 	/* const [showNotifications, setShowNotifications] = useState(false); */
 	/* const [email, setEmail] = useState('') */
@@ -125,7 +122,7 @@ function SettingsPage(){
 									</div>
 								</div>
 								<span className='flex items-center'>
-									{user?.role === 'operator'
+									{user?.role === 'admin' ? 'администратор' : user?.role === 'operator'
 										? 'оператор склада'
 										: 'пользователь'}
 								</span>
@@ -208,6 +205,7 @@ function SettingsPage(){
 										</Button>
 										<Button
 											onClick={handleSave}
+											disabled={loading}
 											className='flex-1 h-[40px] bg-white border-[2px] border-[#7700FF] text-[#7700FF] text-[18px] rounded-[10px]'
 										>
 											<CheckLarge

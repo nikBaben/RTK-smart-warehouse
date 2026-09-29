@@ -2,7 +2,8 @@
 .env
 .env.*
 
-!.env.example
+!.env.dev.example
+!.env.prod.example
 
 
 # PYTHON
@@ -27,6 +28,7 @@ htmlcov/
 # FRONTEND
 frontend/node_modules/
 frontend/dist/
+frontend/.vite/
 
 
 # IDE

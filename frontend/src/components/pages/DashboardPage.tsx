@@ -13,8 +13,7 @@ import { WarehouseMap } from '../widgets/WarehouseMap';
 import SelectWarehouse from "../ui/SelectWarehouse";
 
 function DashboardPage(){
-	const token = localStorage.getItem('token')
-	const { warehouses, selectedWarehouse } = useWarehouseStore()
+	const { selectedWarehouse } = useWarehouseStore()
 	const {
 		avgBattery,
 		robotsData,
@@ -22,7 +21,7 @@ function DashboardPage(){
 		criticalUnique,
 		statusAvg,
 	} = useSocketStore()
-	const { readyState } = useWarehouseSocket(selectedWarehouse?.id ?? '')
+	useWarehouseSocket(selectedWarehouse?.id ?? '')
 	
 	const getStatusName = (status: string) => {
 		switch (status) {

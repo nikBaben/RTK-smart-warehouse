@@ -1,13 +1,10 @@
 'use client';
 import { Dropzone, DropzoneContent, DropzoneEmptyState } from '@/components/ui/shadcn-io/dropzone';
 import { useState } from 'react';
-import { Button } from '../ui/button';
 import {
 	Dialog,
-	DialogClose,
 	DialogContent,
 	DialogDescription,
-	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 	DialogTrigger,
@@ -25,7 +22,7 @@ export function UploadCSV(){
   };
   return (
 		<Dialog>
-			<DialogTrigger>
+			<DialogTrigger asChild>
 				<button title='Экспорт CSV' className='transition-transform'>
 					<Download
 						fill='#9CA3AF'

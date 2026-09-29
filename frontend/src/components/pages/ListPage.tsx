@@ -41,14 +41,13 @@ import {
 
 
 function ListPage() {
-	const token = localStorage.getItem('token')
 	//-----ОБРАБОТКА СОСТОЯНИЙ-----
 	const { user } = useUserStore()
 
 	const [openAdd, setOpenAdd] = useState(false)
 	const [openEdit, setOpenEdit] = useState(false)
-	const [contextRobot, setContextRobot] = useState<Robot | null>(null)
-	const [contextProduct, setContextProduct] = useState<Robot | null>(null)
+	const [, setContextRobot] = useState<Robot | null>(null)
+	const [, setContextProduct] = useState<Robot | null>(null)
 
 	const {
 		warehouses,
@@ -109,10 +108,10 @@ function ListPage() {
 	}
 
 	const [loadingInfo, setLoadingInfo] = useState(false)
-	const [contextWarehouse, setContextWarehouse] = useState<Warehouse>()
+	const [, setContextWarehouse] = useState<Warehouse>()
 	/* 	const [error, setError] = useState<string | null>(null) */
 
-	let denyAdminAccess = !(user?.role === 'operator')
+	const denyAdminAccess = !['admin', 'operator'].includes(user?.role ?? '')
 	useEffect(() => {
 		fetchWarehouses()
 		setSelectedWarehouse(null)

@@ -12,7 +12,7 @@ export function useWarehouseSocket(warehouseId?: string) {
     return { readyState: ReadyState.CLOSED }
   }
 		const socketUrl = warehouseId
-			? `wss://dev.rtk-smart-warehouse.ru/api/ws/warehouses/${warehouseId}`
+			? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/ws/warehouses/${warehouseId}`
 			: null
 
   const { lastMessage, readyState } = useWebSocket(socketUrl,{

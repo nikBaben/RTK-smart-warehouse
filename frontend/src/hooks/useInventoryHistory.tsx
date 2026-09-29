@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
-const BASE_URL = "https://dev.rtk-smart-warehouse.ru/api/v1";
+const BASE_URL = "/api/v1";
 
 // ========================
 // 🔹 Типы
@@ -39,7 +39,7 @@ export type SortOrder = "asc" | "desc";
 
 // Новый формат ответа сервера
 export interface HistoryResponse {
-  data: [InventoryHistoryItem[], number]; // [список, общее количество]
+  data: [[InventoryHistoryItem, number | null, number][], number];
 }
 
 // ========================
@@ -102,7 +102,10 @@ const historyService = {
       }
     );
 
-    const [items, total] = response.data.data || [[], 0];
+    const [rows, total] = response.data.data;
+    const items = rows.map(([item, expectedStock, discrepancy]) => ({
+      ...item, expected_stock: expectedStock, deviation: discrepancy,
+    }));
     return { data: items, total };
   },
 };

@@ -32,7 +32,7 @@ export function WarehouseDropdown({ selectedWarehouseId, setSelectedWarehouseId 
       setError(null);
       try {
         const response = await axios.get(
-          'https://rtk-smart-warehouse.ru/api/v1/warehouses?limit=100&offset=0',
+          '/api/v1/warehouses?limit=100&offset=0',
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setWarehouses(response.data);

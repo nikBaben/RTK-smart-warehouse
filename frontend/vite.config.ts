@@ -8,31 +8,16 @@ export default defineConfig({
     alias: { "@": path.resolve(__dirname, "src") },
   },
   server: {
-    host: true,            // слушаем 0.0.0.0 внутри контейнера
+    host: "0.0.0.0",
     port: 5173,
     strictPort: true,
-    // ВАЖНО: либо перечисление доменов, либо просто true.
-    // Раз “Blocked request…”, даём true на dev.
-    allowedHosts: true,
-
-    // Vite HMR за обратным прокси с TLS (Caddy) — только WSS и 443
-    hmr: {
-      protocol: "wss",
-      host: "rtk-smart-warehouse.ru", // домен, по которому заходим снаружи
-      clientPort: 443,
-      path: "/@vite",                 // дефолт, но укажем явно
-    },
-
-    // Если фронт ходит на /api того же домена — удобно прокинуть локально.
     proxy: {
       "/api": {
-        target: "http://myapp-api:8000",
+        // Compose supplies the service address; local npm uses the published API port.
+        target: process.env.API_PROXY_TARGET || "http://127.0.0.1:8000",
         changeOrigin: true,
         ws: true,
       },
     },
-
-    // Иногда помогает, если браузер «ругается» на origin
-    origin: "https://rtk-smart-warehouse.ru",
   },
 });

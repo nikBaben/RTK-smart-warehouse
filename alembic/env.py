@@ -7,9 +7,9 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from app.core.config import settings
-from app.db.base import Base
-import app.models  # важно: чтобы подхватить все модели
+from backend.core.config import settings
+from backend.db.base import Base
+import backend.models  # важно: чтобы подхватить все модели
 
 config = context.config
 

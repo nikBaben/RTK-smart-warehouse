@@ -132,7 +132,7 @@ export function DataTableHistory<T extends { id: string }>(props: DataTableHisto
               <>
                 {[...Array(rowsPerPage)].map((_, rowIndex) => (
                   <TableRow key={rowIndex} className="h-[30px] bg-[#F2F3F4]">
-                    {columns.map((col, colIndex) => {
+                    {columns.map((_col, colIndex) => {
                       let widthClass = "w-[60px]";
                       let justifyClass = "justify-center";
                       if (colIndex === 0) {

@@ -8,12 +8,10 @@ import {
 import { Spinner } from '@/components/ui/spinner'
 import { useWarehouseStore } from '@/store/useWarehouseStore'
 import { useSocketStore } from '@/store/useSocketStore'
-import { useLocation } from 'react-router-dom'
 
 export function SelectWarehouse(){
 	const { warehouses, selectedWarehouse, setSelectedWarehouse, loading, error } = useWarehouseStore()
   const { resetData } = useSocketStore()
-	const pathname = useLocation()
   return (
 		<div className='relative'>
 			<Select

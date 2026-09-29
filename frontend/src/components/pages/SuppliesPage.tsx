@@ -14,8 +14,8 @@ import {
 
 function SuppliesPage() {
 	const { selectedWarehouse } = useWarehouseStore()
-	const { shipments, deliveries, fetchSupplies, loading } = useSupplyStore()
-	const { readyState } = useWarehouseSocket(selectedWarehouse?.id ?? '')
+	const { shipments, deliveries, fetchSupplies } = useSupplyStore()
+	useWarehouseSocket(selectedWarehouse?.id ?? '')
 	useEffect(() => {
 		if (selectedWarehouse?.id) {
 			fetchSupplies(selectedWarehouse.id)

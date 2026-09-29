@@ -1,4 +1,3 @@
-import React, { useEffect } from "react";
 import { Button } from "../ui/button";
 import CheckLarge from "@atomaro/icons/24/navigation/CheckLarge";
 import CloseLarge from "@atomaro/icons/24/navigation/CloseLarge";
@@ -8,7 +7,6 @@ import {
 	Dialog,
 	DialogClose,
 	DialogContent,
-	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
@@ -24,7 +22,7 @@ export function ExitDialogue(){
 	}
   return (
 		<Dialog>
-			<DialogTrigger>
+			<DialogTrigger asChild>
 				<button title='Выход' className='transition-transform'>
 					<Release
 						fill='#9CA3AF'

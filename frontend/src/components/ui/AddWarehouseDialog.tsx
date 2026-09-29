@@ -4,7 +4,6 @@ import {
 	Dialog,
 	DialogClose,
 	DialogContent,
-	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
@@ -33,7 +32,7 @@ export function AddWarehouseDialog() {
 
 	const { user } = useUserStore()
 	const [loading, setLoading] = useState(false)
-	let denyAdminAccess = !(user?.role === 'operator')
+	const denyAdminAccess = !['admin', 'operator'].includes(user?.role ?? '')
 
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const { name, value } = e.target

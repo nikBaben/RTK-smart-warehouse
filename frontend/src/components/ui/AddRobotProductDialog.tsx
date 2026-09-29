@@ -28,7 +28,6 @@ import { useWarehouseStore } from '@/store/useWarehouseStore'
 import { ToggleButtons } from './ToggleButtons.tsx'
 
 export function AddRobotProductDialog() {
-  const token = localStorage.getItem('token')
 	const [open, setOpen] = useState(false)
 	const [formData, setFormData] = useState({
 		name: '',
@@ -45,7 +44,7 @@ export function AddRobotProductDialog() {
   const { selectedWarehouse } = useWarehouseStore()
 	const [mode, setMode] = useState<'robot' | 'product'>('robot')
 	
-  let denyAdminAccess = !(user?.role === 'operator')
+  const denyAdminAccess = !['admin', 'operator'].includes(user?.role ?? '')
 
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const { name, value } = e.target
