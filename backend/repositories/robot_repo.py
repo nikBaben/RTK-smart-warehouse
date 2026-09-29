@@ -64,6 +64,7 @@ class RobotRepository:
                     Robot.current_shelf,
                     Robot.warehouse_id,
                     Robot.created_at,
+                    Robot.last_update,
                 ),
             )
         )
